@@ -27,6 +27,12 @@ export interface ChatTurn {
   done: boolean;
 }
 
+export interface HealthChatAiResult {
+  ok: boolean;
+  needKey: boolean;
+  turn: ChatTurn | undefined;
+}
+
 export class HealthChatService {
   private static systemPrompt: string = FALLBACK_SYSTEM_PROMPT;
   private static promptLoaded: boolean = false;
@@ -36,10 +42,10 @@ export class HealthChatService {
   }
 
   static async handleUserMessageWithDeepSeek(context: common.Context, input: string,
-    profile: HealthProfile): Promise<ChatTurn> {
+    profile: HealthProfile): Promise<HealthChatAiResult> {
     const apiKey: string = await DeepSeekConfig.getApiKey(context);
     if (apiKey === '') {
-      return HealthChatService.handleUserMessage(input, profile);
+      return { ok: false, needKey: true, turn: undefined };
     }
     try {
       await HealthChatService.ensurePrompt(context);
@@ -48,10 +54,10 @@ export class HealthChatService {
         { role: 'user', content: HealthChatService.buildUserContent(input, profile) }
       ];
       const reply: string = await DeepSeekClient.chat(apiKey, messages);
-      return HealthChatService.parseTurn(reply, profile);
+      return { ok: true, needKey: false, turn: HealthChatService.parseTurn(reply, profile) };
     } catch (e) {
-      LOG.warn('deepseek health chat failed, fallback to rule engine: %{public}s', (e as Error).message);
-      return HealthChatService.handleUserMessage(input, profile);
+      LOG.warn('deepseek health chat failed, prompt user to re-enter key: %{public}s', (e as Error).message);
+      return { ok: false, needKey: false, turn: undefined };
     }
   }
 

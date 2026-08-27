@@ -111,6 +111,14 @@
     {
       "name": "img_only_send",
       "value": "我上传了一张图片"
+    },
+    {
+      "name": "api_key_missing_toast",
+      "value": "请先配置 API Key"
+    },
+    {
+      "name": "api_key_invalid_toast",
+      "value": "API Key 可能有误，请重新填写"
     }
   ]
 }

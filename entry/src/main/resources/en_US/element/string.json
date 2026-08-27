@@ -55,6 +55,14 @@
     {
       "name": "img_only_send",
       "value": "I uploaded an image"
+    },
+    {
+      "name": "api_key_missing_toast",
+      "value": "Please configure your API Key first"
+    },
+    {
+      "name": "api_key_invalid_toast",
+      "value": "API Key may be invalid, please re-enter"
     }
   ]
 }

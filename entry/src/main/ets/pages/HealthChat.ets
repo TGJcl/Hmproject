@@ -1,4 +1,6 @@
 import { common } from '@kit.AbilityKit';
+import { DeepSeekConfig } from 'deepseek';
+import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
 import { ChatMessage } from '../model/ChatMessage';
 import { HealthProfile } from '../model/HealthProfile';
@@ -14,6 +16,7 @@ struct HealthChat {
   @State profile: HealthProfile = new HealthProfile();
   @State saved: boolean = false;
   @State thinking: boolean = false;
+  @State showKeyDialog: boolean = false;
 
   aboutToAppear(): void {
     this.pushBot(HealthChatService.greeting());
@@ -32,6 +35,20 @@ struct HealthChat {
     ConversationService.recordHealth(context, role, text);
   }
 
+  private showToast(text: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: text });
+  }
+
+  private async saveApiKey(key: string): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    await DeepSeekConfig.setApiKey(context, key);
+    this.showKeyDialog = false;
+  }
+
+  private closeApiKeyDialog(): void {
+    this.showKeyDialog = false;
+  }
+
   private async handleSend(): Promise<void> {
     const text: string = this.input.trim();
     if (text === '' || this.thinking) {
@@ -47,7 +64,19 @@ struct HealthChat {
     this.thinking = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const turn = await HealthChatService.handleUserMessageWithDeepSeek(context, text, this.profile);
+      const result = await HealthChatService.handleUserMessageWithDeepSeek(context, text, this.profile);
+      if (!result.ok) {
+        const toastText: string = result.needKey ?
+          context.resourceManager.getStringSync($r('app.string.api_key_missing_toast').id) :
+          context.resourceManager.getStringSync($r('app.string.api_key_invalid_toast').id);
+        this.showToast(toastText);
+        this.showKeyDialog = true;
+        return;
+      }
+      const turn = result.turn;
+      if (turn === undefined) {
+        return;
+      }
       this.profile = turn.profile;
       this.pushBot(turn.reply);
       if (turn.done && !this.saved) {
@@ -62,48 +91,64 @@ struct HealthChat {
   }
 
   build() {
-    Column() {
-      Text($r('app.string.chat_title'))
-        .fontSize($r('app.float.title_font_size'))
-        .fontColor($r('app.color.text_primary'))
-        .fontWeight(FontWeight.Bold)
-        .padding($r('app.float.page_margin'))
-      List({ space: 12 }) {
-        ForEach(this.messages, (msg: ChatMessage, index: number) => {
-          ListItem() {
-            ChatBubble({ role: msg.role, text: msg.text })
-          }
-        }, (msg: ChatMessage, index: number) => index.toString())
-        if (this.thinking) {
-          ListItem() {
-            ChatBubble({ role: 'bot', text: '思考中…' })
+    Stack() {
+      Column() {
+        Text($r('app.string.chat_title'))
+          .fontSize($r('app.float.title_font_size'))
+          .fontColor($r('app.color.text_primary'))
+          .fontWeight(FontWeight.Bold)
+          .padding($r('app.float.page_margin'))
+        List({ space: 12 }) {
+          ForEach(this.messages, (msg: ChatMessage, index: number) => {
+            ListItem() {
+              ChatBubble({ role: msg.role, text: msg.text })
+            }
+          }, (msg: ChatMessage, index: number) => index.toString())
+          if (this.thinking) {
+            ListItem() {
+              ChatBubble({ role: 'bot', text: '思考中…' })
+            }
           }
         }
+        .layoutWeight(1)
+        .width('100%')
+        .padding($r('app.float.page_margin'))
+        Row({ space: $r('app.float.page_space') }) {
+          TextInput({ placeholder: $r('app.string.input_placeholder'), text: this.input })
+            .layoutWeight(1)
+            .height($r('app.float.input_height'))
+            .fontSize($r('app.float.text_font_size'))
+            .onChange((value: string) => {
+              this.input = value;
+            })
+          Button($r('app.string.btn_send'))
+            .height($r('app.float.input_height'))
+            .backgroundColor($r('app.color.button_background'))
+            .fontColor($r('app.color.button_text'))
+            .onClick(() => {
+              this.handleSend();
+            })
+        }
+        .width('100%')
+        .padding($r('app.float.page_margin'))
       }
-      .layoutWeight(1)
       .width('100%')
-      .padding($r('app.float.page_margin'))
-      Row({ space: $r('app.float.page_space') }) {
-        TextInput({ placeholder: $r('app.string.input_placeholder'), text: this.input })
-          .layoutWeight(1)
-          .height($r('app.float.input_height'))
-          .fontSize($r('app.float.text_font_size'))
-          .onChange((value: string) => {
-            this.input = value;
-          })
-        Button($r('app.string.btn_send'))
-          .height($r('app.float.input_height'))
-          .backgroundColor($r('app.color.button_background'))
-          .fontColor($r('app.color.button_text'))
-          .onClick(() => {
-            this.handleSend();
-          })
+      .height('100%')
+      .backgroundColor($r('app.color.page_background'))
+
+      if (this.showKeyDialog) {
+        ApiKeyPrompt({
+          show: this.showKeyDialog,
+          onSave: (key: string) => {
+            this.saveApiKey(key);
+          },
+          onClose: () => {
+            this.closeApiKeyDialog();
+          }
+        })
       }
-      .width('100%')
-      .padding($r('app.float.page_margin'))
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.page_background'))
   }
 }
