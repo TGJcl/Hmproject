@@ -8,6 +8,7 @@
     "image": "file:../image",
     "logger": "file:../logger",
     "embedding": "file:../embedding",
-    "vector": "file:../vector"
+    "vector": "file:../vector",
+    "deepseek": "file:../deepseek"
   }
 }

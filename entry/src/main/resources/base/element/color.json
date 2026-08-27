@@ -39,6 +39,10 @@
     {
       "name": "bubble_user_text",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "mask_color",
+      "value": "#66000000"
     }
   ]
 }

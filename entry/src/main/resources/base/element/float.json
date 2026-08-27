@@ -51,6 +51,10 @@
     {
       "name": "bubble_max_width",
       "value": "78%"
+    },
+    {
+      "name": "dialog_width",
+      "value": "88%"
     }
   ]
 }

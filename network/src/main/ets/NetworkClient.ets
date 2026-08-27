@@ -22,4 +22,24 @@ export class NetworkClient {
       request.destroy();
     }
   }
+
+  static async postJson(url: string, headers: Record<string, string>, body: object, timeout: number = READ_TIMEOUT): Promise<string> {
+    const request = http.createHttp();
+    try {
+      const response = await request.request(url, {
+        method: http.RequestMethod.POST,
+        header: headers,
+        extraData: body,
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: timeout,
+        readTimeout: timeout
+      });
+      if (response.responseCode !== HTTP_OK) {
+        throw new Error('HTTP ' + response.responseCode.toString() + ' ' + response.result);
+      }
+      return response.result as string;
+    } finally {
+      request.destroy();
+    }
+  }
 }

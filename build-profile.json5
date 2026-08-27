@@ -92,6 +92,18 @@
       ]
     },
     {
+      "name": "deepseek",
+      "srcPath": "./deepseek",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
       "name": "vector",
       "srcPath": "./vector",
       "targets": [
@@ -105,3 +117,4 @@
     }
   ]
 }
+

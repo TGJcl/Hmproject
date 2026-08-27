@@ -65,3 +65,11 @@ LogManager.setModuleLevel('HealthService', LogLevel.WARN); // 按模块覆盖
 - **对话采集**：`HealthChatService` 按顺序提问（年龄/身高/体重/睡眠/运动/症状），用规则从回复中抽取健康字段，支持「没有/无」等回答
 - **记忆入库**：采集完成后 `MemoryService` 把健康档案文本向量化（`embedding` HAR）后写入本地向量库（`vector` HAR，基于 RDB 持久化，余弦相似度检索）
 - **Embedding 说明**：当前使用占位实现 `LocalHashEmbedding`；真实模型 `jina-embeddings-v2-base-zh`（MindSpore Lite `.ms`，固定 1×256）已转换并部署在 `models/embedding/`，后续通过 NDK C++ 封装后经 `EmbeddingManager.setProvider()` 切换
+
+## 功能：DeepSeek 大模型交互（RAG 问答）
+
+- **入口**：首页「AI 问答」按钮 → `pages/AiChat`
+- **API Key**：应用首次启动时（首页 `aboutToAppear`）检测未配置则弹出输入框索取，保存到本地 Preferences（`deepseek` HAR 的 `DeepSeekConfig`）
+- **RAG 流程**（`AiChatService`）：用户提问 → 问题向量化（`embedding`）→ 从向量库检索最相关的健康记忆（`vector`，TopK=3）→ 组装 system prompt + 记忆片段 + 问题 → 调用 DeepSeek `chat/completions`（`deepseek` HAR → `network` HAR）→ 返回答案展示
+- **DeepSeek 接口**：`deepseek-chat` 模型，请求超时 60s
+- 注意：API Key 目前明文存在 Preferences（个人学习够用），后续如需安全存储可接入系统级加密或 Keystore

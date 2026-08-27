@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
-    "pages/HealthChat"
+    "pages/HealthChat",
+    "pages/AiChat"
   ]
 }

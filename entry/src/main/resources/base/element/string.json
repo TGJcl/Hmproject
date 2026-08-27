@@ -41,8 +41,16 @@
       "value": "健康对话"
     },
     {
+      "name": "btn_open_ai",
+      "value": "AI 问答"
+    },
+    {
       "name": "chat_title",
       "value": "健康档案对话"
+    },
+    {
+      "name": "ai_chat_title",
+      "value": "AI 健康助手"
     },
     {
       "name": "input_placeholder",
@@ -51,6 +59,26 @@
     {
       "name": "btn_send",
       "value": "发送"
+    },
+    {
+      "name": "api_key_title",
+      "value": "配置 DeepSeek API Key"
+    },
+    {
+      "name": "api_key_hint",
+      "value": "请输入你的 DeepSeek API Key（仅保存在本机，用于调用大模型）"
+    },
+    {
+      "name": "api_key_placeholder",
+      "value": "sk-…"
+    },
+    {
+      "name": "btn_save",
+      "value": "保存"
+    },
+    {
+      "name": "btn_cancel",
+      "value": "取消"
     },
     {
       "name": "db_ready",

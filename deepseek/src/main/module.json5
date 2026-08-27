@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "deepseek",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}
