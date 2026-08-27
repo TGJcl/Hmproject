@@ -1,0 +1,10 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "健康应用入口模块",
+  "dependencies": {
+    "database": "file:../database",
+    "network": "file:../network",
+    "image": "file:../image"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "健康应用入口模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "健康应用入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "健康"
+    },
+    {
+      "name": "app_title",
+      "value": "健康"
+    },
+    {
+      "name": "health_score_label",
+      "value": "健康评分"
+    },
+    {
+      "name": "record_count_label",
+      "value": "记录数：%d"
+    },
+    {
+      "name": "btn_init_db",
+      "value": "初始化数据库"
+    },
+    {
+      "name": "btn_fetch_remote",
+      "value": "获取网络数据"
+    },
+    {
+      "name": "btn_load_image",
+      "value": "读取图片"
+    },
+    {
+      "name": "db_ready",
+      "value": "数据库已就绪，记录数：%d"
+    },
+    {
+      "name": "db_error",
+      "value": "数据库操作失败"
+    },
+    {
+      "name": "remote_ok",
+      "value": "网络请求成功"
+    },
+    {
+      "name": "remote_error",
+      "value": "网络请求失败"
+    },
+    {
+      "name": "image_loaded",
+      "value": "图片读取成功"
+    },
+    {
+      "name": "image_error",
+      "value": "图片读取失败"
+    }
+  ]
+}

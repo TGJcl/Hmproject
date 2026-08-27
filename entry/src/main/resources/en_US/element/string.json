@@ -1,0 +1,52 @@
+{
+  "string": [
+    {
+      "name": "app_title",
+      "value": "Health"
+    },
+    {
+      "name": "health_score_label",
+      "value": "Health Score"
+    },
+    {
+      "name": "record_count_label",
+      "value": "Records: %d"
+    },
+    {
+      "name": "btn_init_db",
+      "value": "Init Database"
+    },
+    {
+      "name": "btn_fetch_remote",
+      "value": "Fetch Data"
+    },
+    {
+      "name": "btn_load_image",
+      "value": "Load Image"
+    },
+    {
+      "name": "db_ready",
+      "value": "Database ready, records: %d"
+    },
+    {
+      "name": "db_error",
+      "value": "Database operation failed"
+    },
+    {
+      "name": "remote_ok",
+      "value": "Network request succeeded"
+    },
+    {
+      "name": "remote_error",
+      "value": "Network request failed"
+    },
+    {
+      "name": "image_loaded",
+      "value": "Image loaded"
+    },
+    {
+      "name": "image_error",
+      "value": "Failed to load image"
+    }
+  ]
+}

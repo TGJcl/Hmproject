@@ -1,0 +1,48 @@
+{
+  "float": [
+    {
+      "name": "page_margin",
+      "value": "16vp"
+    },
+    {
+      "name": "page_space",
+      "value": "12vp"
+    },
+    {
+      "name": "card_space",
+      "value": "8vp"
+    },
+    {
+      "name": "title_font_size",
+      "value": "24fp"
+    },
+    {
+      "name": "text_font_size",
+      "value": "16fp"
+    },
+    {
+      "name": "score_font_size",
+      "value": "40fp"
+    },
+    {
+      "name": "button_width",
+      "value": "200vp"
+    },
+    {
+      "name": "button_height",
+      "value": "44vp"
+    },
+    {
+      "name": "card_radius",
+      "value": "16vp"
+    },
+    {
+      "name": "card_padding",
+      "value": "16vp"
+    },
+    {
+      "name": "image_size",
+      "value": "120vp"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "integer": [
+    {
+      "name": "max_records",
+      "value": 100
+    },
+    {
+      "name": "score_full",
+      "value": 100
+    }
+  ]
+}

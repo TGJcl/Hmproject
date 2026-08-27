@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "image",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}
