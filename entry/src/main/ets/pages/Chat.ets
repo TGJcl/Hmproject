@@ -5,8 +5,9 @@ import { ImageLoader, ImagePicker } from 'image';
 import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
 import { ChatMessage } from '../model/ChatMessage';
-import { ChatAgent, AgentWorkflow } from '../services/ChatAgent';
+import { ChatAgent, AgentRunResult, AgentWorkflow } from '../services/ChatAgent';
 import { ConversationService } from '../services/ConversationService';
+import { FoodRecognitionService } from '../services/FoodRecognitionService';
 
 const IMAGE_TAG: string = '[图片]';
 
@@ -116,9 +117,19 @@ struct Chat {
     this.thinking = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const question: string = text === '' ?
-        context.resourceManager.getStringSync($r('app.string.img_only_send').id) : text;
-      const result = await this.agent.run(context, question);
+      let result: AgentRunResult;
+      if (imageUri !== '') {
+        // 图片消息：先 YOLO 识别食物，再交给 agent 判断
+        let labels: Array<string> = [];
+        if (imagePixelMap !== undefined) {
+          labels = await FoodRecognitionService.detectFood(context, imagePixelMap);
+        }
+        result = await this.agent.runWithImage(context, text, labels);
+      } else {
+        const question: string = text === '' ?
+          context.resourceManager.getStringSync($r('app.string.img_only_send').id) : text;
+        result = await this.agent.run(context, question);
+      }
       this.workflow = result.workflow;
       if (result.needKey || result.apiError) {
         const toastText: string = result.needKey ?

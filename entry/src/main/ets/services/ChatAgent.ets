@@ -30,6 +30,7 @@ interface AgentFact {
 const RAG_TOP_K: number = 3;
 const PROMPT_RAW_PATH: string = 'prompts/agent_prompt.md';
 const NO_MEMORY: string = '（暂无相关记忆）';
+const NO_FOOD_MESSAGE: string = '未能在图片中识别到食物（识别模型目前仅支持香蕉、苹果、披萨、胡萝卜等常见食物，或当前设备识别能力不可用）。';
 const FIELD_KEYS: Array<string> = ['age', 'height', 'weight', 'sleep', 'exercise', 'symptom', 'history', 'duration'];
 const FALLBACK_SYSTEM_PROMPT: string =
   '你是“健康助手”，运行在用户本机（鸿蒙应用）里的 AI 助手，根据对话上下文自行判断当前任务：' +
@@ -77,6 +78,32 @@ export class ChatAgent {
       return await this.standardRun(context, apiKey, input);
     } catch (e) {
       LOG.warn('agent run failed: %{public}s', (e as Error).message);
+      return { replies: [], workflow: this.workflow, needKey: false, apiError: true };
+    }
+  }
+
+  async runWithImage(context: common.Context, text: string, labels: Array<string>): Promise<AgentRunResult> {
+    const apiKey: string = await DeepSeekConfig.getApiKey(context);
+    if (apiKey === '') {
+      return { replies: [], workflow: this.workflow, needKey: true, apiError: false };
+    }
+    try {
+      if (labels.length === 0) {
+        if (text.trim() !== '') {
+          return await this.standardRun(context, apiKey, text);
+        }
+        return { replies: [NO_FOOD_MESSAGE], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
+      }
+      const question: string = '用户上传的图片中识别到食物：' + labels.join('、') +
+        (text.trim() !== '' ? '。用户补充说明：' + text : '') + '。请判断这些食物能否食用。';
+      const conditions: Array<string> = await this.loadActiveConditions(context);
+      if (conditions.length > 0) {
+        this.pendingFoodQuestion = question;
+        return await this.askFoodConfirmation(context, apiKey, question, conditions);
+      }
+      return await this.standardRun(context, apiKey, question);
+    } catch (e) {
+      LOG.warn('agent run with image failed: %{public}s', (e as Error).message);
       return { replies: [], workflow: this.workflow, needKey: false, apiError: true };
     }
   }

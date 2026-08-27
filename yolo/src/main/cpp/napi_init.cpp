@@ -75,7 +75,7 @@ static napi_value Init(napi_env env, napi_callback_info info)
         return ThrowError(env, "init: need resourceManager and modelName");
     }
 
-    NativeResourceManager *resMgr = OH_ResourceManager_GetNativeResourceManager(env, args[0]);
+    NativeResourceManager *resMgr = OH_ResourceManager_InitNativeResourceManager(env, args[0]);
     if (resMgr == nullptr) {
         return ThrowError(env, "init: failed to get resource manager");
     }
@@ -88,12 +88,14 @@ static napi_value Init(napi_env env, napi_callback_info info)
 
     RawFile *rawFile = OH_ResourceManager_OpenRawFile(resMgr, modelName.c_str());
     if (rawFile == nullptr) {
+        OH_ResourceManager_ReleaseNativeResourceManager(resMgr);
         return ThrowError(env, "init: open rawfile model failed: " + modelName);
     }
     long fileSize = OH_ResourceManager_GetRawFileSize(rawFile);
     void *buffer = malloc(static_cast<size_t>(fileSize));
     int ret = OH_ResourceManager_ReadRawFile(rawFile, buffer, static_cast<size_t>(fileSize));
     OH_ResourceManager_CloseRawFile(rawFile);
+    OH_ResourceManager_ReleaseNativeResourceManager(resMgr);
     if (ret == 0 || buffer == nullptr) {
         if (buffer != nullptr) {
             free(buffer);
