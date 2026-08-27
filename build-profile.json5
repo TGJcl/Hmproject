@@ -6,8 +6,7 @@
         "name": "default",
         "signingConfig": "default",
         "compatibleSdkVersion": "5.0.0(12)",
-        "runtimeOS": "HarmonyOS",
-        "targetSdkVersion": "6.0.2(22)"
+        "runtimeOS": "HarmonyOS"
       }
     ],
     "buildModeSet": [
@@ -59,6 +58,42 @@
     {
       "name": "image",
       "srcPath": "./image",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "logger",
+      "srcPath": "./logger",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "embedding",
+      "srcPath": "./embedding",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vector",
+      "srcPath": "./vector",
       "targets": [
         {
           "name": "default",

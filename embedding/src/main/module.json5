@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "embedding",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

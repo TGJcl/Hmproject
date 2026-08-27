@@ -10,3 +10,4 @@
 **/oh-package-lock.json
 **/oh-package-lock.json5
 models/yolov8n/*.pt
+models/embedding/*.ms

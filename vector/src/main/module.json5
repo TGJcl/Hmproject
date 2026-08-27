@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "vector",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

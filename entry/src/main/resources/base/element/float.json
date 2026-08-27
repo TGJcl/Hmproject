@@ -43,6 +43,14 @@
     {
       "name": "image_size",
       "value": "120vp"
+    },
+    {
+      "name": "input_height",
+      "value": "44vp"
+    },
+    {
+      "name": "bubble_max_width",
+      "value": "78%"
     }
   ]
 }

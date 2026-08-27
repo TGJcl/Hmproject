@@ -58,3 +58,10 @@ LogManager.setModuleLevel('HealthService', LogLevel.WARN); // 按模块覆盖
 - 每个业务模块通过 `getLogger('模块名')` 获取独立日志器，输出的 tag 即模块名，便于在 DevEco 日志中按模块过滤。
 - 支持 `debug / info / warn / error` 四个级别，可按模块单独设置级别开关。
 - 日志消息支持 `hilog` 占位符（`%{public}s` / `%{public}d`），隐私字段请改用 `%{private}s`。
+
+## 功能 1：对话采集健康信息 → 存入向量数据库
+
+- **入口**：首页「健康对话」按钮 → `pages/HealthChat`
+- **对话采集**：`HealthChatService` 按顺序提问（年龄/身高/体重/睡眠/运动/症状），用规则从回复中抽取健康字段，支持「没有/无」等回答
+- **记忆入库**：采集完成后 `MemoryService` 把健康档案文本向量化（`embedding` HAR）后写入本地向量库（`vector` HAR，基于 RDB 持久化，余弦相似度检索）
+- **Embedding 说明**：当前使用占位实现 `LocalHashEmbedding`；真实模型 `jina-embeddings-v2-base-zh`（MindSpore Lite `.ms`，固定 1×256）已转换并部署在 `models/embedding/`，后续通过 NDK C++ 封装后经 `EmbeddingManager.setProvider()` 切换

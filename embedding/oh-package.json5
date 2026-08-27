@@ -1,0 +1,8 @@
+{
+  "name": "embedding",
+  "version": "1.0.0",
+  "description": "向量化能力 HAR：本地文本 Embedding（占位实现，后续替换为本地 ONNX 模型）",
+  "dependencies": {
+    "logger": "file:../logger"
+  }
+}

@@ -6,6 +6,8 @@
     "database": "file:../database",
     "network": "file:../network",
     "image": "file:../image",
-    "logger": "file:../logger"
+    "logger": "file:../logger",
+    "embedding": "file:../embedding",
+    "vector": "file:../vector"
   }
 }

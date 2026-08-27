@@ -37,6 +37,22 @@
       "value": "读取图片"
     },
     {
+      "name": "btn_open_chat",
+      "value": "健康对话"
+    },
+    {
+      "name": "chat_title",
+      "value": "健康档案对话"
+    },
+    {
+      "name": "input_placeholder",
+      "value": "输入你的健康信息…"
+    },
+    {
+      "name": "btn_send",
+      "value": "发送"
+    },
+    {
       "name": "db_ready",
       "value": "数据库已就绪，记录数：%d"
     },

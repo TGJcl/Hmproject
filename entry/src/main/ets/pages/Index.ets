@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { image } from '@kit.ImageKit';
+import { router } from '@kit.ArkUI';
 import { HealthCard } from '../components/HealthCard';
 import { HealthSummary } from '../model/HealthSummary';
 import { HealthService } from '../services/HealthService';
@@ -57,6 +58,10 @@ struct Index {
     }
   }
 
+  private openHealthChat(): void {
+    router.pushUrl({ url: 'pages/HealthChat' });
+  }
+
   build() {
     Column({ space: $r('app.float.page_space') }) {
       Text($r('app.string.app_title'))
@@ -85,6 +90,14 @@ struct Index {
           .height($r('app.float.image_size'))
           .borderRadius($r('app.float.card_radius'))
       }
+      Button($r('app.string.btn_open_chat'))
+        .width($r('app.float.button_width'))
+        .height($r('app.float.button_height'))
+        .backgroundColor($r('app.color.button_background'))
+        .fontColor($r('app.color.button_text'))
+        .onClick(() => {
+          this.openHealthChat();
+        })
       Button($r('app.string.btn_init_db'))
         .width($r('app.float.button_width'))
         .height($r('app.float.button_height'))

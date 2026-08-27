@@ -31,6 +31,14 @@
     {
       "name": "button_text",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "bubble_user",
+      "value": "#0A59F7"
+    },
+    {
+      "name": "bubble_user_text",
+      "value": "#FFFFFF"
     }
   ]
 }

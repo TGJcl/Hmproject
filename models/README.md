@@ -49,3 +49,44 @@ converter_lite.exe --fmk=ONNX --modelFile=models/yolov8n/yolov8n.onnx --outputFi
 ## 注意
 
 预训练 YOLOv8n 只在 COCO 80 类上训练，其中蔬菜类仅 **broccoli（西兰花）** 和 **carrot（胡萝卜）** 两类。若要让应用识别更多蔬菜品种，需要后续用蔬菜数据集对模型做微调（fine-tune），再按上述流程重新导出 ONNX / MS。
+
+---
+
+# Jina Embeddings v2 base zh（中文文本向量模型）
+
+> 用于功能 1：把对话中采集的健康信息向量化后存入本地向量数据库。
+> 模型来源：HuggingFace `jinaai/jina-embeddings-v2-base-zh`（Apache-2.0，个人学习、非商用）。
+
+## 文件清单（models/embedding/）
+
+| 文件 | 大小 | 说明 |
+| --- | --- | --- |
+| `jina-embeddings-v2-base-zh-static.ms` | 645 MB | MindSpore Lite 格式（固定输入 1×256），C++/NDK 直接加载（不纳入 git） |
+| `tokenizer.json` | 2 MB | BERT 分词器（C++ 侧分词用，已纳入 git） |
+| `config.json` / `tokenizer_config.json` / `special_tokens_map.json` | 小 | 模型与分词器配置（已纳入 git） |
+
+源 ONNX 位置：`D:\codexSpace\models\models--jinaai--jina-embeddings-v2-base-zh\snapshots\...\onnx\model.onnx`（641MB）
+
+## 模型规格
+
+- 输入：`input_ids [1, 256]` int64、`attention_mask [1, 256]` int64
+- 输出：`last_hidden_state [1, 256, 768]` float32
+- 句向量取法（C++ 侧实现）：取 `[CLS]` 位置或对非 padding 位置做 mean pooling，再 L2 归一化
+
+## 转换命令（已在本地完成）
+
+```bash
+converter_lite.exe --fmk=ONNX --modelFile=<onnx 路径> \
+  --outputFile=models/embedding/jina-embeddings-v2-base-zh-static \
+  --inputShape='input_ids:1,256;attention_mask:1,256'
+```
+
+## 验证结果
+
+- MindSpore Lite benchmark（CPU，seq=256 随机输入）：单次推理约 260ms（2 线程），加载与推理成功。
+
+## C++/ArkTS 调用计划
+
+1. `embedding` HAR 增加 NDK C++ 工程：加载 `.ms` + tokenizer（C++ 实现 BERT 分词）→ 推理 → 返回句向量，NAPI 暴露 `embed(text): Promise<number[]>`
+2. ArkTS 侧 `EmbeddingManager.setProvider(napiProvider)` 切换到真实模型，替换当前占位实现（`LocalHashEmbedding`）
+3. 模型部署方式：645MB 体积较大，后续可转 fp16（体积减半）或放入应用 rawfile / 首次启动从本地拷贝
