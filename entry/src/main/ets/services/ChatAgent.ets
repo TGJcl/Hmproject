@@ -44,6 +44,7 @@ export class ChatAgent {
   private workflow: AgentWorkflow = AgentWorkflow.AI_QA;
   private profile: HealthProfile = new HealthProfile();
   private profileSaved: boolean = false;
+  private pendingFoodQuestion: string = '';
   private systemPrompt: string = FALLBACK_SYSTEM_PROMPT;
   private promptLoaded: boolean = false;
 
@@ -61,28 +62,109 @@ export class ChatAgent {
       return { replies: [], workflow: this.workflow, needKey: true, apiError: false };
     }
     try {
-      await this.ensurePrompt(context);
-      await VectorDatabase.init(context);
-      const queryVector: Array<number> = await EmbeddingManager.embed(input);
-      const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
-      let memoryText: string = NO_MEMORY;
-      if (records.length > 0) {
-        memoryText = records.map((record) => ChatAgent.memoryLine(record)).join('\n');
+      // 食物确认第二阶段：用户已回复确认，回答之前的食物问题
+      if (this.pendingFoodQuestion !== '') {
+        return await this.finishFoodCheck(context, apiKey, input);
       }
-      const messages: Array<DeepSeekMessage> = [
-        { role: 'system', content: this.systemPrompt },
-        {
-          role: 'user',
-          content: '当前日期：' + ChatAgent.today() + '\n当前档案：' + this.profileText() +
-            '\n\n记忆片段：\n' + memoryText + '\n\n用户输入：' + input
+      // 食物确认第一阶段：检测到食物问题，先确认未痊愈状况
+      if (ChatAgent.isFoodQuestion(input)) {
+        const conditions: Array<string> = await this.loadActiveConditions(context);
+        if (conditions.length > 0) {
+          this.pendingFoodQuestion = input;
+          return await this.askFoodConfirmation(context, apiKey, input, conditions);
         }
-      ];
-      const content: string = await DeepSeekClient.chat(apiKey, messages);
-      return await this.handleContent(context, content);
+      }
+      return await this.standardRun(context, apiKey, input);
     } catch (e) {
       LOG.warn('agent run failed: %{public}s', (e as Error).message);
       return { replies: [], workflow: this.workflow, needKey: false, apiError: true };
     }
+  }
+
+  private async standardRun(context: common.Context, apiKey: string, input: string): Promise<AgentRunResult> {
+    await this.ensurePrompt(context);
+    await VectorDatabase.init(context);
+    const queryVector: Array<number> = await EmbeddingManager.embed(input);
+    const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
+    let memoryText: string = NO_MEMORY;
+    if (records.length > 0) {
+      memoryText = records.map((record) => ChatAgent.memoryLine(record)).join('\n');
+    }
+    const messages: Array<DeepSeekMessage> = [
+      { role: 'system', content: this.systemPrompt },
+      {
+        role: 'user',
+        content: '当前日期：' + ChatAgent.today() + '\n当前档案：' + this.profileText() +
+          '\n\n记忆片段：\n' + memoryText + '\n\n用户输入：' + input
+      }
+    ];
+    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    return await this.handleContent(context, content);
+  }
+
+  private async loadActiveConditions(context: common.Context): Promise<Array<string>> {
+    await VectorDatabase.init(context);
+    const records = await VectorDatabase.findByMetadataLike('"source":"chat_fact"');
+    const list: Array<string> = [];
+    for (const rec of records) {
+      try {
+        const meta: Record<string, Object> = JSON.parse(rec.metadata) as Record<string, Object>;
+        const status: string = meta['status'] as string;
+        if (status === 'active') {
+          const time: string = meta['time'] as string;
+          list.push(rec.content + (time !== undefined && time !== '' ? '（' + time + '记录）' : ''));
+        }
+      } catch (e) {
+      }
+    }
+    return list;
+  }
+
+  private async askFoodConfirmation(context: common.Context, apiKey: string, input: string,
+    conditions: Array<string>): Promise<AgentRunResult> {
+    await this.ensurePrompt(context);
+    const messages: Array<DeepSeekMessage> = [
+      { role: 'system', content: this.systemPrompt },
+      {
+        role: 'user',
+        content: '当前日期：' + ChatAgent.today() +
+          '\n用户询问能否食用某食物，系统查询到用户当前未痊愈的状况：' + conditions.join('；') +
+          '\n请先逐一确认这些状况现在是否仍然存在（例如“我记录到你患有感冒，现在好了吗？”），确认完成之前不要直接回答食物问题。' +
+          '\n用户输入：' + input
+      }
+    ];
+    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    return await this.handleContent(context, content);
+  }
+
+  private async finishFoodCheck(context: common.Context, apiKey: string, confirmation: string): Promise<AgentRunResult> {
+    const question: string = this.pendingFoodQuestion;
+    this.pendingFoodQuestion = '';
+    await this.ensurePrompt(context);
+    await VectorDatabase.init(context);
+    const queryVector: Array<number> = await EmbeddingManager.embed(question);
+    const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
+    let memoryText: string = NO_MEMORY;
+    if (records.length > 0) {
+      memoryText = records.map((record) => ChatAgent.memoryLine(record)).join('\n');
+    }
+    const messages: Array<DeepSeekMessage> = [
+      { role: 'system', content: this.systemPrompt },
+      {
+        role: 'user',
+        content: '当前日期：' + ChatAgent.today() +
+          '\n用户之前询问：' + question +
+          '\n用户现在确认身体状况：' + confirmation +
+          '\n\n记忆片段：\n' + memoryText +
+          '\n\n请根据用户确认后的最新身体状况，明确回答该食物或饮品能否食用，以及注意事项。'
+      }
+    ];
+    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    return await this.handleContent(context, content);
+  }
+
+  private static isFoodQuestion(text: string): boolean {
+    return /能吃|可以吃|能不能吃|能喝|可以喝|能不能喝|忌口/.test(text);
   }
 
   private profileText(): string {
