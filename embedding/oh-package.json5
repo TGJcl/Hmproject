@@ -1,8 +1,9 @@
 {
   "name": "embedding",
   "version": "1.0.0",
-  "description": "向量化能力 HAR：本地文本 Embedding（占位实现，后续替换为本地 ONNX 模型）",
+  "description": "向量化能力 HAR：本地文本 Embedding（NDK C++ 推理：jina-embeddings-v2-base-zh）",
   "dependencies": {
-    "logger": "file:../logger"
+    "logger": "file:../logger",
+    "libembedding.so": "file:./src/main/cpp/types/libembedding"
   }
 }

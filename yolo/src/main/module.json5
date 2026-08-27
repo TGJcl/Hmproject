@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "yolo",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

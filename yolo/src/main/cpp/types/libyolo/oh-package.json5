@@ -1,0 +1,8 @@
+{
+  "name": "libyolo.so",
+  "version": "1.0.0",
+  "description": "yolo native module",
+  "main": "index.d.ts",
+  "author": "",
+  "license": ""
+}

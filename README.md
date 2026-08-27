@@ -73,3 +73,22 @@ LogManager.setModuleLevel('HealthService', LogLevel.WARN); // 按模块覆盖
 - **RAG 流程**（`AiChatService`）：用户提问 → 问题向量化（`embedding`）→ 从向量库检索最相关的健康记忆（`vector`，TopK=3）→ 组装 system prompt + 记忆片段 + 问题 → 调用 DeepSeek `chat/completions`（`deepseek` HAR → `network` HAR）→ 返回答案展示
 - **DeepSeek 接口**：`deepseek-chat` 模型，请求超时 60s
 - 注意：API Key 目前明文存在 Preferences（个人学习够用），后续如需安全存储可接入系统级加密或 Keystore
+
+## NDK C++ 推理封装（MindSpore Lite）
+
+两个推理模型都已完成 C++/NAPI 封装：
+
+- **yolo HAR**：模型 `yolov8n.ms` 随模块 rawfile 打包；`YoloDetector.init(resourceManager)` 加载，`detect(rgbaBuffer, width, height)` 异步推理，返回 `DetectionResult[]`（COCO 80 类标签 + 置信度 + 坐标，已做 letterbox/NMS 后处理）
+- **embedding HAR**：`NativeEmbedding.init(modelPath, tokenizerPath)` 加载 `jina-embeddings-v2-base-zh-static.ms` 与 BPE 分词器（`tokenizer.json`）；`embed(text)` 返回 768 维归一化向量（均值池化）
+- 运行时：`libmindspore-lite.so` 已放到各模块 `libs/arm64-v8a/`，头文件在 `src/main/cpp/include/`，CMake 在 `src/main/cpp/CMakeLists.txt`
+
+部署与使用：
+
+- yolo 模型随 HAP 打包（rawfile），开箱即用
+- embedding 模型 645MB 过大不能进 rawfile，需放到应用沙箱 `filesDir/models/` 下（`jina-embeddings-v2-base-zh-static.ms` + `tokenizer.json`）；`MemoryService` 检测到文件后会自动切换 `EmbeddingManager` 到原生实现，否则回退占位 embedding
+- 目前只提供 `arm64-v8a` ABI；模拟器（x86_64）需要另行放置对应架构的 `libmindspore-lite.so`
+
+已知限制：
+
+- C++ 分词器为近似实现（ASCII 小写 + 空白切分 + 字符级 BPE），未实现完整 NFC 归一化，个别字符可能产生与 HF tokenizer 不同的 token，后续可按需完善
+- 645MB 的 embedding 模型在真机上内存占用较大，后续可转 fp16（约 322MB）再部署

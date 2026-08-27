@@ -1,0 +1,9 @@
+{
+  "name": "yolo",
+  "version": "1.0.0",
+  "description": "YOLOv8n 目标检测能力 HAR：NDK C++ 推理封装（MindSpore Lite）",
+  "dependencies": {
+    "logger": "file:../logger",
+    "libyolo.so": "file:./src/main/cpp/types/libyolo"
+  }
+}

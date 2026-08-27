@@ -1,0 +1,8 @@
+{
+  "name": "libembedding.so",
+  "version": "1.0.0",
+  "description": "embedding native module",
+  "main": "index.d.ts",
+  "author": "",
+  "license": ""
+}

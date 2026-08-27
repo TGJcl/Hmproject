@@ -80,6 +80,18 @@
       ]
     },
     {
+      "name": "yolo",
+      "srcPath": "./yolo",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
       "name": "embedding",
       "srcPath": "./embedding",
       "targets": [
@@ -117,4 +129,5 @@
     }
   ]
 }
+
 
