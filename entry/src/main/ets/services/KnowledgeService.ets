@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
-import { EmbeddingManager } from 'embedding';
+import { ModelWorkerService } from './ModelWorkerService';
 import { VectorDatabase } from 'vector';
 import { getLogger } from 'logger';
 
@@ -42,7 +42,7 @@ export class KnowledgeService {
         if (await VectorDatabase.existsByMetadata(metadata)) {
           continue;
         }
-        const vector: Array<number> = await EmbeddingManager.embed(chunk.content);
+        const vector: Array<number> = await ModelWorkerService.embed(chunk.content);
         await VectorDatabase.add(chunk.content, vector, metadata);
         imported++;
       }

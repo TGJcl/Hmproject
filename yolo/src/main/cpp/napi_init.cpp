@@ -65,6 +65,8 @@ napi_value ThrowError(napi_env env, const std::string &msg)
 }
 }  // namespace
 
+static bool BuildModelFromMemory(napi_env env, const void *data, size_t size);
+
 // ============ init(resourceManager, modelName)：从 rawfile 读取模型并构建 ============
 static napi_value Init(napi_env env, napi_callback_info info)
 {
@@ -103,21 +105,68 @@ static napi_value Init(napi_env env, napi_callback_info info)
         return ThrowError(env, "init: read rawfile model failed");
     }
 
+    if (!BuildModelFromMemory(env, buffer, static_cast<size_t>(fileSize))) {
+        free(buffer);
+        return ThrowError(env, "init: model build failed");
+    }
+    if (g_model.buffer != nullptr) {
+        free(g_model.buffer);
+    }
+    g_model.buffer = buffer;
+    g_model.bufferSize = static_cast<size_t>(fileSize);
+    g_model.built = true;
+    LOGI("model built, inputs=%zu", g_model.model.GetInputs().size());
+    return nullptr;
+}
+
+static bool BuildModelFromMemory(napi_env env, const void *data, size_t size)
+{
     auto ctx = std::make_shared<mindspore::Context>();
     auto &deviceList = ctx->MutableDeviceInfo();
     auto cpuInfo = std::make_shared<mindspore::CPUDeviceInfo>();
     cpuInfo->SetEnableFP16(false);
     deviceList.push_back(cpuInfo);
 
-    mindspore::Status st = g_model.model.Build(buffer, static_cast<size_t>(fileSize), mindspore::kMindIR, ctx);
-    if (st != mindspore::kSuccess) {
-        free(buffer);
-        return ThrowError(env, "init: model build failed");
+    mindspore::Status st = g_model.model.Build(data, size, mindspore::kMindIR, ctx);
+    return st == mindspore::kSuccess;
+}
+
+// ============ initFromBuffer(buffer)：从内存构建模型（供 Worker 线程使用） ============
+static napi_value InitFromBuffer(napi_env env, napi_callback_info info)
+{
+    size_t argc = 1;
+    napi_value args[1];
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    if (argc < 1) {
+        return ThrowError(env, "initFromBuffer: need ArrayBuffer");
     }
-    g_model.buffer = buffer;
-    g_model.bufferSize = static_cast<size_t>(fileSize);
+    bool isBuffer = false;
+    napi_is_arraybuffer(env, args[0], &isBuffer);
+    if (!isBuffer) {
+        return ThrowError(env, "initFromBuffer: need ArrayBuffer");
+    }
+    void *data = nullptr;
+    size_t len = 0;
+    napi_get_arraybuffer_info(env, args[0], &data, &len);
+    if (data == nullptr || len == 0) {
+        return ThrowError(env, "initFromBuffer: empty buffer");
+    }
+    void *copy = malloc(len);
+    if (copy == nullptr) {
+        return ThrowError(env, "initFromBuffer: out of memory");
+    }
+    memcpy(copy, data, len);
+    if (!BuildModelFromMemory(env, copy, len)) {
+        free(copy);
+        return ThrowError(env, "initFromBuffer: model build failed");
+    }
+    if (g_model.buffer != nullptr) {
+        free(g_model.buffer);
+    }
+    g_model.buffer = copy;
+    g_model.bufferSize = len;
     g_model.built = true;
-    LOGI("model built, inputs=%zu", g_model.model.GetInputs().size());
+    LOGI("model built from buffer, size=%zu, inputs=%zu", len, g_model.model.GetInputs().size());
     return nullptr;
 }
 
@@ -337,6 +386,7 @@ static napi_value InitAll(napi_env env, napi_value exports)
 {
     napi_property_descriptor desc[] = {
         {"init", nullptr, Init, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"initFromBuffer", nullptr, InitFromBuffer, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"detect", nullptr, Detect, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);

@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
 import { DeepSeekClient, DeepSeekConfig, DeepSeekMessage } from 'deepseek';
-import { EmbeddingManager } from 'embedding';
+import { ModelWorkerService } from './ModelWorkerService';
 import { VectorDatabase, VectorRecord } from 'vector';
 import { getLogger } from 'logger';
 import { HealthProfile } from '../model/HealthProfile';
@@ -63,6 +63,7 @@ export class ChatAgent {
       return { replies: [], workflow: this.workflow, needKey: true, apiError: false };
     }
     try {
+      await ModelWorkerService.init(context);
       // 食物确认第二阶段：用户已回复确认，回答之前的食物问题
       if (this.pendingFoodQuestion !== '') {
         return await this.finishFoodCheck(context, apiKey, input);
@@ -111,7 +112,7 @@ export class ChatAgent {
   private async standardRun(context: common.Context, apiKey: string, input: string): Promise<AgentRunResult> {
     await this.ensurePrompt(context);
     await VectorDatabase.init(context);
-    const queryVector: Array<number> = await EmbeddingManager.embed(input);
+    const queryVector: Array<number> = await ModelWorkerService.embed(input);
     const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
     let memoryText: string = NO_MEMORY;
     if (records.length > 0) {
@@ -169,7 +170,7 @@ export class ChatAgent {
     this.pendingFoodQuestion = '';
     await this.ensurePrompt(context);
     await VectorDatabase.init(context);
-    const queryVector: Array<number> = await EmbeddingManager.embed(question);
+    const queryVector: Array<number> = await ModelWorkerService.embed(question);
     const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
     let memoryText: string = NO_MEMORY;
     if (records.length > 0) {
@@ -319,7 +320,7 @@ export class ChatAgent {
       'fact': text,
       'time': time
     });
-    const vector: Array<number> = await EmbeddingManager.embed(text);
+    const vector: Array<number> = await ModelWorkerService.embed(text);
     await VectorDatabase.add(text, vector, metadata);
     LOG.info('fact stored: %{public}s', text);
   }
@@ -350,7 +351,7 @@ export class ChatAgent {
       'fact': text,
       'time': time
     });
-    const vector: Array<number> = await EmbeddingManager.embed(text);
+    const vector: Array<number> = await ModelWorkerService.embed(text);
     await VectorDatabase.add(text, vector, metadata);
     LOG.info('resolved fact stored: %{public}s', text);
   }

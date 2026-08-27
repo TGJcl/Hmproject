@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { NetworkClient } from 'network';
 import { DeepSeekClient, DeepSeekConfig, DeepSeekMessage } from 'deepseek';
-import { EmbeddingManager } from 'embedding';
+import { ModelWorkerService } from './ModelWorkerService';
 import { VectorDatabase } from 'vector';
 import { getLogger } from 'logger';
 
@@ -31,7 +31,7 @@ export class DietAdviceService {
         return '';
       }
       const advice: string = await DietAdviceService.summarize(context, name, extract);
-      const vector: Array<number> = await EmbeddingManager.embed(advice);
+      const vector: Array<number> = await ModelWorkerService.embed(advice);
       const metadata: string = JSON.stringify({
         'source': SOURCE_TAG,
         'disease': name,

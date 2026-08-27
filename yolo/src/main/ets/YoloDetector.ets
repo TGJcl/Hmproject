@@ -8,6 +8,10 @@ export class YoloDetector {
     yoloNative.init(resourceManager, RAW_MODEL_NAME);
   }
 
+  static initFromBuffer(buffer: ArrayBuffer): void {
+    yoloNative.initFromBuffer(buffer);
+  }
+
   static detect(imageData: ArrayBuffer, width: number, height: number): Promise<Array<DetectionResult>> {
     return yoloNative.detect(imageData, width, height) as Promise<Array<DetectionResult>>;
   }
