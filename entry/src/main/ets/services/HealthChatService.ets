@@ -1,3 +1,6 @@
+import { common } from '@kit.AbilityKit';
+import { util } from '@kit.ArkTS';
+import { DeepSeekClient, DeepSeekConfig, DeepSeekMessage } from 'deepseek';
 import { getLogger } from 'logger';
 import { HealthProfile } from '../model/HealthProfile';
 
@@ -10,6 +13,12 @@ const QUESTIONS: Record<string, string> = {
   'exercise': '平时有运动习惯吗（比如跑步、游泳，每周几次）？',
   'symptom': '最近身体有没有不适或症状？'
 };
+const PROMPT_RAW_PATH: string = 'prompts/health_profile_prompt.md';
+const FALLBACK_SYSTEM_PROMPT: string =
+  '你是“健康档案助手”，通过自然对话逐步收集用户的健康信息。' +
+  '需要收集：年龄（如“28岁”）、身高（如“170cm”）、体重（如“60kg”）、睡眠（如“7小时”或“失眠”）、运动（如“跑步，每周3次”）、症状（如“头痛、乏力”，没有就写“无”）。' +
+  '每次只问一个缺失字段，语气自然；全部收齐后在 reply 中总结档案并说明已记入记忆库。' +
+  '只输出严格 JSON：{"reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":""}}，fields 只填本次确认的字段。';
 const LOG = getLogger('HealthChatService');
 
 export interface ChatTurn {
@@ -19,8 +28,31 @@ export interface ChatTurn {
 }
 
 export class HealthChatService {
+  private static systemPrompt: string = FALLBACK_SYSTEM_PROMPT;
+  private static promptLoaded: boolean = false;
+
   static greeting(): string {
     return '你好！我是健康助手，想通过对话了解你的身体状况并记入我的记忆库。先从年龄开始吧：请问你今年多大（岁）？';
+  }
+
+  static async handleUserMessageWithDeepSeek(context: common.Context, input: string,
+    profile: HealthProfile): Promise<ChatTurn> {
+    const apiKey: string = await DeepSeekConfig.getApiKey(context);
+    if (apiKey === '') {
+      return HealthChatService.handleUserMessage(input, profile);
+    }
+    try {
+      await HealthChatService.ensurePrompt(context);
+      const messages: Array<DeepSeekMessage> = [
+        { role: 'system', content: HealthChatService.systemPrompt },
+        { role: 'user', content: HealthChatService.buildUserContent(input, profile) }
+      ];
+      const reply: string = await DeepSeekClient.chat(apiKey, messages);
+      return HealthChatService.parseTurn(reply, profile);
+    } catch (e) {
+      LOG.warn('deepseek health chat failed, fallback to rule engine: %{public}s', (e as Error).message);
+      return HealthChatService.handleUserMessage(input, profile);
+    }
   }
 
   static handleUserMessage(input: string, profile: HealthProfile): ChatTurn {
@@ -53,6 +85,71 @@ export class HealthChatService {
 
   static buildSummary(profile: HealthProfile): string {
     return '好的，已为你建立健康档案：' + profile.toMemoryText() + '。现在把它存入我的记忆库。';
+  }
+
+  private static buildUserContent(input: string, profile: HealthProfile): string {
+    const filled: Array<string> = [];
+    const missing: Array<string> = [];
+    for (const key of QUESTION_ORDER) {
+      if (profile.getField(key) !== '') {
+        filled.push(key);
+      } else {
+        missing.push(key);
+      }
+    }
+    return '用户最新回复：' + input +
+      '\n已收集字段：' + (filled.length > 0 ? filled.join('、') : '无') +
+      '\n待收集字段：' + missing.join('、') +
+      '\n请按系统要求输出严格 JSON。';
+  }
+
+  private static parseTurn(reply: string, profile: HealthProfile): ChatTurn {
+    const jsonText: string = HealthChatService.extractJson(reply);
+    if (jsonText === '') {
+      throw new Error('deepseek reply contains no json');
+    }
+    const parsed: Record<string, Object> = JSON.parse(jsonText) as Record<string, Object>;
+    const botReply: string = parsed['reply'] as string;
+    if (botReply === undefined || botReply === '') {
+      throw new Error('deepseek reply has no reply field');
+    }
+    const fields: Record<string, string> = parsed['fields'] as Record<string, string>;
+    if (fields !== undefined) {
+      for (const key of QUESTION_ORDER) {
+        const value: string = fields[key] as string;
+        if (value !== undefined && value !== '' && profile.getField(key) === '') {
+          profile.setField(key, value);
+          LOG.info('ai collected %{public}s = %{public}s', key, value);
+        }
+      }
+    }
+    return { reply: botReply, profile: profile, done: profile.isComplete() };
+  }
+
+  private static extractJson(text: string): string {
+    const start: number = text.indexOf('{');
+    const end: number = text.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      return '';
+    }
+    return text.substring(start, end + 1);
+  }
+
+  private static async ensurePrompt(context: common.Context): Promise<void> {
+    if (HealthChatService.promptLoaded) {
+      return;
+    }
+    try {
+      const raw: Uint8Array = await context.resourceManager.getRawFileContent(PROMPT_RAW_PATH);
+      const text: string = util.TextDecoder.create('utf-8').decodeToString(raw);
+      if (text.trim().length > 0) {
+        HealthChatService.systemPrompt = text.trim();
+        LOG.info('health profile prompt loaded from rawfile');
+      }
+    } catch (e) {
+      LOG.warn('load health profile prompt failed, use built-in: %{public}s', (e as Error).message);
+    }
+    HealthChatService.promptLoaded = true;
   }
 
   private static extractField(key: string, text: string): string {

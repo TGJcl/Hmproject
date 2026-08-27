@@ -13,6 +13,7 @@ struct HealthChat {
   @State input: string = '';
   @State profile: HealthProfile = new HealthProfile();
   @State saved: boolean = false;
+  @State thinking: boolean = false;
 
   aboutToAppear(): void {
     this.pushBot(HealthChatService.greeting());
@@ -33,7 +34,7 @@ struct HealthChat {
 
   private async handleSend(): Promise<void> {
     const text: string = this.input.trim();
-    if (text === '') {
+    if (text === '' || this.thinking) {
       return;
     }
     this.input = '';
@@ -43,15 +44,20 @@ struct HealthChat {
     this.messages.push(userMsg);
     this.recordMessage('user', text);
 
-    const turn = HealthChatService.handleUserMessage(text, this.profile);
-    this.profile = turn.profile;
-    this.pushBot(turn.reply);
-    if (turn.done && !this.saved) {
-      this.saved = true;
+    this.thinking = true;
+    try {
       const context = getContext(this) as common.UIAbilityContext;
-      await MemoryService.init(context);
-      const id: number = await MemoryService.saveHealthProfile(this.profile);
-      this.pushBot('已存入记忆库（记录编号 ' + id + '）');
+      const turn = await HealthChatService.handleUserMessageWithDeepSeek(context, text, this.profile);
+      this.profile = turn.profile;
+      this.pushBot(turn.reply);
+      if (turn.done && !this.saved) {
+        this.saved = true;
+        await MemoryService.init(context);
+        const id: number = await MemoryService.saveHealthProfile(this.profile);
+        this.pushBot('已存入记忆库（记录编号 ' + id + '）');
+      }
+    } finally {
+      this.thinking = false;
     }
   }
 
@@ -62,12 +68,17 @@ struct HealthChat {
         .fontColor($r('app.color.text_primary'))
         .fontWeight(FontWeight.Bold)
         .padding($r('app.float.page_margin'))
-            List({ space: 12 }) { // List.space 仅支持 number|string，SDK 限制无法引用 float 资源
+      List({ space: 12 }) {
         ForEach(this.messages, (msg: ChatMessage, index: number) => {
           ListItem() {
             ChatBubble({ role: msg.role, text: msg.text })
           }
         }, (msg: ChatMessage, index: number) => index.toString())
+        if (this.thinking) {
+          ListItem() {
+            ChatBubble({ role: 'bot', text: '思考中…' })
+          }
+        }
       }
       .layoutWeight(1)
       .width('100%')
