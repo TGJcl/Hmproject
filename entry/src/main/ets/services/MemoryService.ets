@@ -4,6 +4,7 @@ import { EmbeddingManager, NativeEmbedding } from 'embedding';
 import { VectorDatabase } from 'vector';
 import { getLogger } from 'logger';
 import { HealthProfile } from '../model/HealthProfile';
+import { KnowledgeService } from './KnowledgeService';
 
 const MEMORY_TYPE: string = 'health_profile';
 const TOP_K: number = 3;
@@ -15,6 +16,7 @@ export class MemoryService {
   static async init(context: common.Context): Promise<void> {
     await VectorDatabase.init(context);
     MemoryService.tryEnableNativeEmbedding(context);
+    await KnowledgeService.importGuidelines(context);
     LOG.info('init end');
   }
 

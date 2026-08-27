@@ -1,3 +1,4 @@
+import { common } from '@kit.AbilityKit';
 import { RdbHelper } from 'database';
 import { getLogger } from 'logger';
 import { VectorRecord } from './VectorRecord';
@@ -27,6 +28,20 @@ export class VectorDatabase {
     const rowId: number = await RdbHelper.insert(TABLE_NAME, values);
     LOG.info('add memory, id=%{public}d', rowId);
     return rowId;
+  }
+
+  static async existsByMetadata(metadata: string): Promise<boolean> {
+    const sql: string = 'SELECT COUNT(*) AS count FROM ' + TABLE_NAME + ' WHERE metadata = ?';
+    const resultSet = await RdbHelper.querySql(sql, [metadata]);
+    try {
+      let count: number = 0;
+      if (resultSet.goToFirstRow()) {
+        count = resultSet.getLong(resultSet.getColumnIndex('count'));
+      }
+      return count > 0;
+    } finally {
+      resultSet.close();
+    }
   }
 
   static async search(query: Array<number>, topK: number): Promise<Array<VectorRecord>> {
