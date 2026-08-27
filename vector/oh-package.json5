@@ -1,5 +1,6 @@
 {
   "name": "vector",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "向量数据库 HAR：本地向量存取与余弦相似度检索（基于 RDB 持久化）",
   "dependencies": {

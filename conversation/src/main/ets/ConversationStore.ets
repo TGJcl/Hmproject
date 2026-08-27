@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { relationalStore } from '@kit.ArkData';
 import { RdbHelper } from 'database';
 import { getLogger } from 'logger';
 import { ConversationMessage } from './ConversationMessage';
@@ -19,7 +20,7 @@ export class ConversationStore {
   static async addMessage(context: common.Context, role: string, text: string,
     sessionId: string = 'default'): Promise<number> {
     await ConversationStore.init(context);
-    const values = {
+    const values: relationalStore.ValuesBucket = {
       'session_id': sessionId,
       'role': role,
       'text': text,

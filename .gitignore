@@ -11,3 +11,7 @@
 **/oh-package-lock.json5
 models/yolov8n/*.pt
 models/embedding/*.ms
+# 构建生成文件
+**/BuildProfile.ets
+.clangd
+.clang-tidy

@@ -1,5 +1,6 @@
 {
   "name": "image",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "图片能力 HAR：封装图片读取、相册选图与 PixelMap 创建能力",
   "dependencies": {

@@ -1,6 +1,6 @@
 import { NetworkClient } from 'network';
 import { getLogger } from 'logger';
-import { DeepSeekMessage, DeepSeekResponse } from './DeepSeekMessage';
+import { DeepSeekMessage, DeepSeekRequest, DeepSeekResponse } from './DeepSeekMessage';
 
 const API_URL: string = 'https://api.deepseek.com/chat/completions';
 const MODEL_NAME: string = 'deepseek-chat';
@@ -14,7 +14,7 @@ export class DeepSeekClient {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + apiKey
     };
-    const body = {
+    const body: DeepSeekRequest = {
       model: MODEL_NAME,
       messages: messages,
       temperature: TEMPERATURE,

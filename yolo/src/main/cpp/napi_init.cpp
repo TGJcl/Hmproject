@@ -16,9 +16,9 @@
 #include "api/types.h"
 #include "api/status.h"
 
-static constexpr char LOG_TAG[] = "YoloNative";
-#define LOGI(...) OH_LOG_Print(LOG_APP, LOG_INFO, 0x0000, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) OH_LOG_Print(LOG_APP, LOG_ERROR, 0x0000, LOG_TAG, __VA_ARGS__)
+static constexpr char YoloNative_TAG[] = "YoloNative";
+#define LOGI(...) OH_LOG_Print(LOG_APP, LOG_INFO, 0x0000, YoloNative_TAG, __VA_ARGS__)
+#define LOGE(...) OH_LOG_Print(LOG_APP, LOG_ERROR, 0x0000, YoloNative_TAG, __VA_ARGS__)
 
 namespace {
 constexpr int kInputSize = 640;
@@ -101,8 +101,8 @@ static napi_value Init(napi_env env, napi_callback_info info)
         return ThrowError(env, "init: read rawfile model failed");
     }
 
-    mindspore::Context ctx;
-    auto &deviceList = ctx.MutableDeviceInfo();
+    auto ctx = std::make_shared<mindspore::Context>();
+    auto &deviceList = ctx->MutableDeviceInfo();
     auto cpuInfo = std::make_shared<mindspore::CPUDeviceInfo>();
     cpuInfo->SetEnableFP16(false);
     deviceList.push_back(cpuInfo);
@@ -193,7 +193,7 @@ static void DetectExecute(napi_env env, void *data)
         job->error = "model has no outputs";
         return;
     }
-    const float *out = reinterpret_cast<const float *>(outputs[0].Data());
+    const float *out = reinterpret_cast<const float *>(outputs[0].Data().get());
     if (outputs[0].ElementNum() != static_cast<size_t>((4 + kNumClasses) * kNumAnchors)) {
         job->error = "unexpected output shape";
         return;
@@ -259,7 +259,7 @@ static void DetectExecute(napi_env env, void *data)
     LOGI("detect done, boxes=%zu", job->dets.size());
 }
 
-static napi_value DetectComplete(napi_env env, napi_status status, void *data)
+static void DetectComplete(napi_env env, napi_status status, void *data)
 {
     DetectJob *job = static_cast<DetectJob *>(data);
     if (status == napi_ok && job->error.empty()) {
@@ -292,7 +292,6 @@ static napi_value DetectComplete(napi_env env, napi_status status, void *data)
     }
     napi_delete_async_work(env, job->work);
     delete job;
-    return nullptr;
 }
 
 static napi_value Detect(napi_env env, napi_callback_info info)

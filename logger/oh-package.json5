@@ -1,5 +1,6 @@
 {
   "name": "logger",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "日志打点 HAR：按模块输出业务日志，支持日志级别与模块级开关",
   "dependencies": {}

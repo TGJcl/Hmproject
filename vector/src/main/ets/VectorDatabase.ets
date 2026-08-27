@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { relationalStore } from '@kit.ArkData';
 import { RdbHelper } from 'database';
 import { getLogger } from 'logger';
 import { VectorRecord } from './VectorRecord';
@@ -19,7 +20,7 @@ export class VectorDatabase {
   }
 
   static async add(content: string, vector: Array<number>, metadata: string): Promise<number> {
-    const values = {
+    const values: relationalStore.ValuesBucket = {
       'content': content,
       'vector': JSON.stringify(vector),
       'metadata': metadata,

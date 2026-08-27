@@ -1,5 +1,6 @@
 {
   "name": "database",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "数据库能力 HAR：封装关系型数据库的创建与基础操作",
   "dependencies": {}

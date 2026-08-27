@@ -128,7 +128,7 @@ struct AiChat {
           .fontColor($r('app.color.text_primary'))
           .fontWeight(FontWeight.Bold)
           .padding($r('app.float.page_margin'))
-        List({ space: $r('app.float.page_space') }) {
+                List({ space: 12 }) { // List.space 仅支持 number|string，SDK 限制无法引用 float 资源
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
               ChatBubble({ role: msg.role, text: msg.text, imagePixelMap: msg.imagePixelMap })

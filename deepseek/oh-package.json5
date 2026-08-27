@@ -1,5 +1,6 @@
 {
   "name": "deepseek",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "DeepSeek 大模型能力 HAR：对话补全 API 客户端与 API Key 本地存储",
   "dependencies": {

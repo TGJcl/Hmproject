@@ -15,7 +15,7 @@ add_library(embedding SHARED napi_init.cpp)
 
 add_library(mindspore_lite SHARED IMPORTED)
 set_target_properties(mindspore_lite PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/arm64-v8a/libmindspore-lite.so)
+    IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../libs/arm64-v8a/libmindspore-lite.so)
 
 target_link_libraries(embedding PUBLIC mindspore_lite)
 target_link_libraries(embedding PUBLIC hilog_ndk.z)

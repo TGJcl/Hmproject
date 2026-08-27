@@ -1,5 +1,6 @@
 {
   "name": "network",
+  "main": "./src/main/ets/index.ets",
   "version": "1.0.0",
   "description": "网络能力 HAR：封装 HTTP 请求的创建与基础请求方法",
   "dependencies": {}
