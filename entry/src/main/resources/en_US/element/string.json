@@ -63,6 +63,14 @@
     {
       "name": "api_key_invalid_toast",
       "value": "API Key may be invalid, please re-enter"
+    },
+    {
+      "name": "tab_health_profile",
+      "value": "Health Profile"
+    },
+    {
+      "name": "tab_ai_qa",
+      "value": "AI Q&A"
     }
   ]
 }

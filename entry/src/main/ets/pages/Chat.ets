@@ -5,23 +5,25 @@ import { ImageLoader, ImagePicker } from 'image';
 import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
 import { ChatMessage } from '../model/ChatMessage';
-import { AiChatService } from '../services/AiChatService';
+import { ChatAgent, AgentWorkflow } from '../services/ChatAgent';
 import { ConversationService } from '../services/ConversationService';
 
-const AI_GREETING: string = '你好！我是 AI 健康助手，可以结合你的记忆库回答健康问题。';
 const IMAGE_TAG: string = '[图片]';
 
 @Entry
 @Component
-struct AiChat {
+struct Chat {
   @State messages: Array<ChatMessage> = [];
   @State input: string = '';
   @State thinking: boolean = false;
   @State showKeyDialog: boolean = false;
+  @State workflow: AgentWorkflow = AgentWorkflow.HEALTH_PROFILE;
   @State pendingImageUri: string = '';
   @State pendingImagePixelMap: image.PixelMap | undefined = undefined;
+  private agent: ChatAgent = new ChatAgent();
 
   aboutToAppear(): void {
+    this.switchWorkflow(AgentWorkflow.HEALTH_PROFILE);
     this.checkApiKey();
   }
 
@@ -30,9 +32,16 @@ struct AiChat {
     const key: string = await DeepSeekConfig.getApiKey(context);
     if (key === '') {
       this.showKeyDialog = true;
-    } else {
-      this.pushBot(AI_GREETING);
     }
+  }
+
+  private switchWorkflow(workflow: AgentWorkflow): void {
+    this.workflow = workflow;
+    this.agent.setWorkflow(workflow);
+    this.messages = [];
+    this.input = '';
+    this.clearPendingImage();
+    this.pushBot(this.agent.greeting());
   }
 
   private pushBot(text: string): void {
@@ -45,7 +54,11 @@ struct AiChat {
 
   private recordMessage(role: string, text: string): void {
     const context = getContext(this) as common.UIAbilityContext;
-    ConversationService.recordAi(context, role, text);
+    if (this.workflow === AgentWorkflow.HEALTH_PROFILE) {
+      ConversationService.recordHealth(context, role, text);
+    } else {
+      ConversationService.recordAi(context, role, text);
+    }
   }
 
   private recordUserMessage(text: string, imageUri: string): void {
@@ -54,6 +67,20 @@ struct AiChat {
       content = (content === '' ? IMAGE_TAG : content + '\n' + IMAGE_TAG) + imageUri;
     }
     this.recordMessage('user', content);
+  }
+
+  private showToast(text: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: text });
+  }
+
+  private async saveApiKey(key: string): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    await DeepSeekConfig.setApiKey(context, key);
+    this.showKeyDialog = false;
+  }
+
+  private closeApiKeyDialog(): void {
+    this.showKeyDialog = false;
   }
 
   private async pickImage(): Promise<void> {
@@ -74,17 +101,6 @@ struct AiChat {
   private clearPendingImage(): void {
     this.pendingImageUri = '';
     this.pendingImagePixelMap = undefined;
-  }
-
-  private async saveApiKey(key: string): Promise<void> {
-    const context = getContext(this) as common.UIAbilityContext;
-    await DeepSeekConfig.setApiKey(context, key);
-    this.showKeyDialog = false;
-    this.pushBot(AI_GREETING);
-  }
-
-  private closeApiKeyDialog(): void {
-    this.showKeyDialog = false;
   }
 
   private async handleSend(): Promise<void> {
@@ -111,8 +127,18 @@ struct AiChat {
       const context = getContext(this) as common.UIAbilityContext;
       const question: string = text === '' ?
         context.resourceManager.getStringSync($r('app.string.img_only_send').id) : text;
-      const reply: string = await AiChatService.chat(context, question);
-      this.pushBot(reply);
+      const result = await this.agent.run(context, question);
+      if (result.needKey || result.apiError) {
+        const toastText: string = result.needKey ?
+          context.resourceManager.getStringSync($r('app.string.api_key_missing_toast').id) :
+          context.resourceManager.getStringSync($r('app.string.api_key_invalid_toast').id);
+        this.showToast(toastText);
+        this.showKeyDialog = true;
+        return;
+      }
+      for (const reply of result.replies) {
+        this.pushBot(reply);
+      }
     } catch (e) {
       this.pushBot('请求失败，请检查 API Key 或网络后重试。');
     } finally {
@@ -123,12 +149,37 @@ struct AiChat {
   build() {
     Stack() {
       Column() {
-        Text($r('app.string.ai_chat_title'))
+        Row({ space: $r('app.float.page_space') }) {
+          Button($r('app.string.tab_health_profile'))
+            .layoutWeight(1)
+            .height($r('app.float.button_height'))
+            .backgroundColor(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
+              $r('app.color.button_background') : $r('app.color.card_background'))
+            .fontColor(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
+              $r('app.color.button_text') : $r('app.color.text_primary'))
+            .onClick(() => {
+              this.switchWorkflow(AgentWorkflow.HEALTH_PROFILE);
+            })
+          Button($r('app.string.tab_ai_qa'))
+            .layoutWeight(1)
+            .height($r('app.float.button_height'))
+            .backgroundColor(this.workflow === AgentWorkflow.AI_QA ?
+              $r('app.color.button_background') : $r('app.color.card_background'))
+            .fontColor(this.workflow === AgentWorkflow.AI_QA ?
+              $r('app.color.button_text') : $r('app.color.text_primary'))
+            .onClick(() => {
+              this.switchWorkflow(AgentWorkflow.AI_QA);
+            })
+        }
+        .width('100%')
+        .padding($r('app.float.page_margin'))
+        Text(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
+          $r('app.string.chat_title') : $r('app.string.ai_chat_title'))
           .fontSize($r('app.float.title_font_size'))
           .fontColor($r('app.color.text_primary'))
           .fontWeight(FontWeight.Bold)
-          .padding($r('app.float.page_margin'))
-                List({ space: 12 }) { // List.space 仅支持 number|string，SDK 限制无法引用 float 资源
+          .padding({ left: $r('app.float.page_margin'), bottom: $r('app.float.page_margin') })
+        List({ space: 12 }) {
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
               ChatBubble({ role: msg.role, text: msg.text, imagePixelMap: msg.imagePixelMap })
@@ -184,17 +235,23 @@ struct AiChat {
         }
 
         Row({ space: $r('app.float.page_space') }) {
-          Button({ type: ButtonType.Circle }) {
-            Text('🖼️')
-              .fontSize($r('app.float.text_font_size'))
+          if (this.workflow === AgentWorkflow.AI_QA) {
+            Button({ type: ButtonType.Circle }) {
+              Text('🖼️')
+                .fontSize($r('app.float.text_font_size'))
+            }
+            .width($r('app.float.input_height'))
+            .height($r('app.float.input_height'))
+            .backgroundColor($r('app.color.card_background'))
+            .onClick(() => {
+              this.pickImage();
+            })
           }
-          .width($r('app.float.input_height'))
-          .height($r('app.float.input_height'))
-          .backgroundColor($r('app.color.card_background'))
-          .onClick(() => {
-            this.pickImage();
+          TextInput({
+            placeholder: this.workflow === AgentWorkflow.AI_QA ?
+              $r('app.string.ai_input_placeholder') : $r('app.string.input_placeholder'),
+            text: this.input
           })
-          TextInput({ placeholder: $r('app.string.ai_input_placeholder'), text: this.input })
             .layoutWeight(1)
             .height($r('app.float.input_height'))
             .fontSize($r('app.float.text_font_size'))
