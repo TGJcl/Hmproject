@@ -28,7 +28,8 @@ const FALLBACK_SYSTEM_PROMPT: string =
   '你是“健康助手”，运行在用户本机（鸿蒙应用）里的 AI 助手，根据对话上下文自行判断当前任务：' +
   '1) 健康档案采集（mode=profile）：用户提供健康信息（年龄、身高、体重、睡眠、运动、症状、当前病史、患病周期）时抽取到 fields，并每次只追问一个缺失字段；' +
   '2) 健康问答（mode=qa）：用户提问时结合“记忆片段”回答，没有相关信息就如实说明。' +
-  '只输出严格 JSON：{"mode":"profile"或"qa","reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":"","history":"","duration":""},"done":false}。' +
+  '3) 事实记录（facts）：用户透露出新的健康事实（如“我患有感冒”“我最近失眠”）时整理成完整句子放入 facts 数组，没有则为空数组。' +
+  '只输出严格 JSON：{"mode":"profile"或"qa","reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":"","history":"","duration":""},"facts":[],"done":false}。' +
   'fields 只填本次确认的字段，未确认留空。';
 const LOG = getLogger('ChatAgent');
 
@@ -97,42 +98,77 @@ export class ChatAgent {
       return { replies: [content], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
     }
     const mode: string = parsed['mode'] as string;
+    let replies: Array<string>;
+    let resultWorkflow: AgentWorkflow;
     if (mode !== 'profile') {
       this.workflow = AgentWorkflow.AI_QA;
-      return { replies: [reply], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
-    }
-    // 健康档案工作流：抽取字段
-    this.workflow = AgentWorkflow.HEALTH_PROFILE;
-    const fields: Record<string, string> = parsed['fields'] as Record<string, string>;
-    if (fields !== undefined) {
-      for (const key of FIELD_KEYS) {
-        const value: string = fields[key] as string;
-        if (value !== undefined && value !== '' && this.profile.getField(key) === '') {
-          this.profile.setField(key, value);
-          LOG.info('agent collected %{public}s = %{public}s', key, value);
+      replies = [reply];
+      resultWorkflow = AgentWorkflow.AI_QA;
+    } else {
+      // 健康档案工作流：抽取字段
+      this.workflow = AgentWorkflow.HEALTH_PROFILE;
+      const fields: Record<string, string> = parsed['fields'] as Record<string, string>;
+      if (fields !== undefined) {
+        for (const key of FIELD_KEYS) {
+          const value: string = fields[key] as string;
+          if (value !== undefined && value !== '' && this.profile.getField(key) === '') {
+            this.profile.setField(key, value);
+            LOG.info('agent collected %{public}s = %{public}s', key, value);
+          }
         }
       }
-    }
-    const replies: Array<string> = [reply];
-    if (this.profile.isComplete() && !this.profileSaved) {
-      this.profileSaved = true;
-      await MemoryService.init(context);
-      const id: number = await MemoryService.saveHealthProfile(this.profile);
-      replies.push('已存入记忆库（记录编号 ' + id + '）');
-      if (this.profile.history !== '' && this.profile.history !== '无') {
-        const advice: string = await DietAdviceService.queryDietAdviceAndStore(context, this.profile.history);
-        if (advice !== '') {
-          replies.push('根据' + this.profile.history + '，为你查询到以下饮食注意事项：\n' + advice);
-        } else {
-          replies.push('未能查询到' + this.profile.history + '的饮食建议，可稍后重试。');
+      replies = [reply];
+      resultWorkflow = AgentWorkflow.HEALTH_PROFILE;
+      if (this.profile.isComplete() && !this.profileSaved) {
+        this.profileSaved = true;
+        await MemoryService.init(context);
+        const id: number = await MemoryService.saveHealthProfile(this.profile);
+        replies.push('已存入记忆库（记录编号 ' + id + '）');
+        if (this.profile.history !== '' && this.profile.history !== '无') {
+          const advice: string = await DietAdviceService.queryDietAdviceAndStore(context, this.profile.history);
+          if (advice !== '') {
+            replies.push('根据' + this.profile.history + '，为你查询到以下饮食注意事项：\n' + advice);
+          } else {
+            replies.push('未能查询到' + this.profile.history + '的饮食建议，可稍后重试。');
+          }
         }
+        // 档案已完成，回到问答工作流，等待下次重新建档
+        this.workflow = AgentWorkflow.AI_QA;
+        this.profile = new HealthProfile();
+        this.profileSaved = false;
       }
-      // 档案已完成，回到问答工作流，等待下次重新建档
-      this.workflow = AgentWorkflow.AI_QA;
-      this.profile = new HealthProfile();
-      this.profileSaved = false;
     }
-    return { replies: replies, workflow: AgentWorkflow.HEALTH_PROFILE, needKey: false, apiError: false };
+    // 持续记录对话中透出的健康事实
+    const facts: Array<string> = parsed['facts'] as Array<string>;
+    await this.storeFacts(context, facts);
+    return { replies: replies, workflow: resultWorkflow, needKey: false, apiError: false };
+  }
+
+  private async storeFacts(context: common.Context, facts: Array<string> | undefined): Promise<void> {
+    if (facts === undefined) {
+      return;
+    }
+    try {
+      await VectorDatabase.init(context);
+      for (const fact of facts) {
+        const text: string = fact.trim();
+        if (text === '') {
+          continue;
+        }
+        const metadata: string = JSON.stringify({
+          'source': 'chat_fact',
+          'fact': text
+        });
+        if (await VectorDatabase.existsByMetadata(metadata)) {
+          continue;
+        }
+        const vector: Array<number> = await EmbeddingManager.embed(text);
+        await VectorDatabase.add(text, vector, metadata);
+        LOG.info('fact stored: %{public}s', text);
+      }
+    } catch (e) {
+      LOG.warn('store facts failed: %{public}s', (e as Error).message);
+    }
   }
 
   private static extractJson(text: string): string {
