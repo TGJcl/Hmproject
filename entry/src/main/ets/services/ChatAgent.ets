@@ -1,12 +1,13 @@
 import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
+import { preferences } from '@kit.ArkData';
 import { DeepSeekClient, DeepSeekConfig, DeepSeekMessage } from 'deepseek';
-import { ModelWorkerService } from './ModelWorkerService';
 import { VectorDatabase, VectorRecord } from 'vector';
 import { getLogger } from 'logger';
 import { HealthProfile } from '../model/HealthProfile';
 import { MemoryService } from './MemoryService';
 import { DietAdviceService } from './DietAdviceService';
+import { ModelWorkerService } from './ModelWorkerService';
 
 export enum AgentWorkflow {
   HEALTH_PROFILE = 0,
@@ -18,6 +19,7 @@ export interface AgentRunResult {
   workflow: AgentWorkflow;
   needKey: boolean;
   apiError: boolean;
+  foodCheck: boolean;
 }
 
 interface AgentFact {
@@ -32,12 +34,15 @@ const PROMPT_RAW_PATH: string = 'prompts/agent_prompt.md';
 const NO_MEMORY: string = '（暂无相关记忆）';
 const NO_FOOD_MESSAGE: string = '未能在图片中识别到食物（识别模型目前仅支持香蕉、苹果、披萨、胡萝卜等常见食物，或当前设备识别能力不可用）。';
 const FIELD_KEYS: Array<string> = ['age', 'height', 'weight', 'sleep', 'exercise', 'symptom', 'history', 'duration'];
+const PREF_NAME: string = 'chat_agent_state';
+const PREF_KEY_PENDING_FOOD: string = 'pending_food_question';
 const FALLBACK_SYSTEM_PROMPT: string =
   '你是“健康助手”，运行在用户本机（鸿蒙应用）里的 AI 助手，根据对话上下文自行判断当前任务：' +
   '1) 健康档案采集（mode=profile）：用户提供健康信息（年龄、身高、体重、睡眠、运动、症状、当前病史、患病周期）时抽取到 fields，并每次只追问一个缺失字段；' +
   '2) 健康问答（mode=qa）：用户提问时结合“记忆片段”回答，没有相关信息就如实说明。' +
   '3) 事实记录（facts）：用户透露出新的健康事实时输出记录 {"subject":"病症关键词","text":"完整句子","time":"YYYY-MM-DD","status":"active"}；用户表示已痊愈/不再发作时输出 status 为 resolved 的记录。' +
-  '只输出严格 JSON：{"mode":"profile"或"qa","reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":"","history":"","duration":""},"facts":[],"done":false}。' +
+  '4) 食物确认（food_check）：用户询问食物/饮品能否食用且“当前未痊愈状况”不为空时，输出 mode 为 food_check 并先逐一确认状况；状况为空时直接回答。' +
+  '只输出严格 JSON：{"mode":"profile"或"qa"或"food_check","reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":"","history":"","duration":""},"facts":[],"done":false}。' +
   'fields 只填本次确认的字段，未确认留空。';
 const LOG = getLogger('ChatAgent');
 
@@ -60,58 +65,61 @@ export class ChatAgent {
   async run(context: common.Context, input: string): Promise<AgentRunResult> {
     const apiKey: string = await DeepSeekConfig.getApiKey(context);
     if (apiKey === '') {
-      return { replies: [], workflow: this.workflow, needKey: true, apiError: false };
+      return { replies: [], workflow: this.workflow, needKey: true, apiError: false, foodCheck: false };
     }
     try {
       await ModelWorkerService.init(context);
-      // 食物确认第二阶段：用户已回复确认，回答之前的食物问题
-      if (this.pendingFoodQuestion !== '') {
-        return await this.finishFoodCheck(context, apiKey, input);
-      }
-      // 食物确认第一阶段：检测到食物问题，先确认未痊愈状况
-      if (ChatAgent.isFoodQuestion(input)) {
-        const conditions: Array<string> = await this.loadActiveConditions(context);
-        if (conditions.length > 0) {
-          this.pendingFoodQuestion = input;
-          return await this.askFoodConfirmation(context, apiKey, input, conditions);
-        }
-      }
-      return await this.standardRun(context, apiKey, input);
+      await this.loadPendingFood(context);
+      return await this.runCore(context, apiKey, input);
     } catch (e) {
       LOG.warn('agent run failed: %{public}s', (e as Error).message);
-      return { replies: [], workflow: this.workflow, needKey: false, apiError: true };
+      return { replies: [], workflow: this.workflow, needKey: false, apiError: true, foodCheck: false };
     }
   }
 
   async runWithImage(context: common.Context, text: string, labels: Array<string>): Promise<AgentRunResult> {
     const apiKey: string = await DeepSeekConfig.getApiKey(context);
     if (apiKey === '') {
-      return { replies: [], workflow: this.workflow, needKey: true, apiError: false };
+      return { replies: [], workflow: this.workflow, needKey: true, apiError: false, foodCheck: false };
     }
     try {
+      await ModelWorkerService.init(context);
+      await this.loadPendingFood(context);
       if (labels.length === 0) {
         if (text.trim() !== '') {
-          return await this.standardRun(context, apiKey, text);
+          return await this.runCore(context, apiKey, text);
         }
-        return { replies: [NO_FOOD_MESSAGE], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
+        return {
+          replies: [NO_FOOD_MESSAGE], workflow: AgentWorkflow.AI_QA,
+          needKey: false, apiError: false, foodCheck: false
+        };
       }
       const question: string = '用户上传的图片中识别到食物：' + labels.join('、') +
         (text.trim() !== '' ? '。用户补充说明：' + text : '') + '。请判断这些食物能否食用。';
-      const conditions: Array<string> = await this.loadActiveConditions(context);
-      if (conditions.length > 0) {
-        this.pendingFoodQuestion = question;
-        return await this.askFoodConfirmation(context, apiKey, question, conditions);
-      }
-      return await this.standardRun(context, apiKey, question);
+      return await this.runCore(context, apiKey, question);
     } catch (e) {
       LOG.warn('agent run with image failed: %{public}s', (e as Error).message);
-      return { replies: [], workflow: this.workflow, needKey: false, apiError: true };
+      return { replies: [], workflow: this.workflow, needKey: false, apiError: true, foodCheck: false };
     }
+  }
+
+  private async runCore(context: common.Context, apiKey: string, input: string): Promise<AgentRunResult> {
+    if (this.pendingFoodQuestion !== '') {
+      return await this.finishFoodCheck(context, apiKey, input);
+    }
+    const result: AgentRunResult = await this.standardRun(context, apiKey, input);
+    if (result.foodCheck) {
+      this.pendingFoodQuestion = input;
+      await this.savePendingFood(context);
+      LOG.info('pending food question saved');
+    }
+    return result;
   }
 
   private async standardRun(context: common.Context, apiKey: string, input: string): Promise<AgentRunResult> {
     await this.ensurePrompt(context);
     await VectorDatabase.init(context);
+    const conditions: Array<string> = await this.loadActiveConditions(context);
     const queryVector: Array<number> = await ModelWorkerService.embed(input);
     const records = await VectorDatabase.search(queryVector, RAG_TOP_K);
     let memoryText: string = NO_MEMORY;
@@ -122,7 +130,9 @@ export class ChatAgent {
       { role: 'system', content: this.systemPrompt },
       {
         role: 'user',
-        content: '当前日期：' + ChatAgent.today() + '\n当前档案：' + this.profileText() +
+        content: '当前日期：' + ChatAgent.today() +
+          '\n当前未痊愈状况：' + (conditions.length > 0 ? conditions.join('；') : '无') +
+          '\n当前档案：' + this.profileText() +
           '\n\n记忆片段：\n' + memoryText + '\n\n用户输入：' + input
       }
     ];
@@ -130,44 +140,9 @@ export class ChatAgent {
     return await this.handleContent(context, content);
   }
 
-  private async loadActiveConditions(context: common.Context): Promise<Array<string>> {
-    await VectorDatabase.init(context);
-    const records = await VectorDatabase.findByMetadataLike('"source":"chat_fact"');
-    const list: Array<string> = [];
-    for (const rec of records) {
-      try {
-        const meta: Record<string, Object> = JSON.parse(rec.metadata) as Record<string, Object>;
-        const status: string = meta['status'] as string;
-        if (status === 'active') {
-          const time: string = meta['time'] as string;
-          list.push(rec.content + (time !== undefined && time !== '' ? '（' + time + '记录）' : ''));
-        }
-      } catch (e) {
-      }
-    }
-    return list;
-  }
-
-  private async askFoodConfirmation(context: common.Context, apiKey: string, input: string,
-    conditions: Array<string>): Promise<AgentRunResult> {
-    await this.ensurePrompt(context);
-    const messages: Array<DeepSeekMessage> = [
-      { role: 'system', content: this.systemPrompt },
-      {
-        role: 'user',
-        content: '当前日期：' + ChatAgent.today() +
-          '\n用户询问能否食用某食物，系统查询到用户当前未痊愈的状况：' + conditions.join('；') +
-          '\n请先逐一确认这些状况现在是否仍然存在（例如“我记录到你患有感冒，现在好了吗？”），确认完成之前不要直接回答食物问题。' +
-          '\n用户输入：' + input
-      }
-    ];
-    const content: string = await this.callModel(apiKey, messages);
-    return await this.handleContent(context, content);
-  }
-
   private async finishFoodCheck(context: common.Context, apiKey: string, confirmation: string): Promise<AgentRunResult> {
     const question: string = this.pendingFoodQuestion;
-    this.pendingFoodQuestion = '';
+    await this.clearPendingFood(context);
     await this.ensurePrompt(context);
     await VectorDatabase.init(context);
     const queryVector: Array<number> = await ModelWorkerService.embed(question);
@@ -191,10 +166,6 @@ export class ChatAgent {
     return await this.handleContent(context, content);
   }
 
-  private static isFoodQuestion(text: string): boolean {
-    return /能吃|可以吃|能不能吃|能喝|可以喝|能不能喝|忌口/.test(text);
-  }
-
   private profileText(): string {
     const filled: Array<string> = [];
     for (const key of FIELD_KEYS) {
@@ -205,23 +176,43 @@ export class ChatAgent {
     return filled.length > 0 ? this.profile.toMemoryText() : '尚未建立';
   }
 
+  private async loadActiveConditions(context: common.Context): Promise<Array<string>> {
+    await VectorDatabase.init(context);
+    const records = await VectorDatabase.findByMetadataLike('"source":"chat_fact"');
+    const list: Array<string> = [];
+    for (const rec of records) {
+      try {
+        const meta: Record<string, Object> = JSON.parse(rec.metadata) as Record<string, Object>;
+        const status: string = meta['status'] as string;
+        if (status === 'active') {
+          const time: string = meta['time'] as string;
+          list.push(rec.content + (time !== undefined && time !== '' ? '（' + time + '记录）' : ''));
+        }
+      } catch (e) {
+      }
+    }
+    return list;
+  }
+
   private async handleContent(context: common.Context, content: string): Promise<AgentRunResult> {
     const jsonText: string = ChatAgent.extractJson(content);
     if (jsonText === '') {
-      return { replies: [content], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
+      return { replies: [content], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false, foodCheck: false };
     }
     const parsed: Record<string, Object> = JSON.parse(jsonText) as Record<string, Object>;
     const reply: string = parsed['reply'] as string;
     if (reply === undefined || reply === '') {
-      return { replies: [content], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false };
+      return { replies: [content], workflow: AgentWorkflow.AI_QA, needKey: false, apiError: false, foodCheck: false };
     }
     const mode: string = parsed['mode'] as string;
     let replies: Array<string>;
     let resultWorkflow: AgentWorkflow;
+    let foodCheck: boolean = false;
     if (mode !== 'profile') {
       this.workflow = AgentWorkflow.AI_QA;
       replies = [reply];
       resultWorkflow = AgentWorkflow.AI_QA;
+      foodCheck = mode === 'food_check';
     } else {
       this.workflow = AgentWorkflow.HEALTH_PROFILE;
       const fields: Record<string, string> = parsed['fields'] as Record<string, string>;
@@ -256,7 +247,7 @@ export class ChatAgent {
     }
     const facts: Array<AgentFact> = ChatAgent.parseFacts(parsed['facts']);
     await this.storeFacts(context, facts);
-    return { replies: replies, workflow: resultWorkflow, needKey: false, apiError: false };
+    return { replies: replies, workflow: resultWorkflow, needKey: false, apiError: false, foodCheck: foodCheck };
   }
 
   private static parseFacts(raw: Object | undefined): Array<AgentFact> {
@@ -380,13 +371,33 @@ export class ChatAgent {
     return '- ' + tag + record.content;
   }
 
-  private static today(): string {
-    const now = new Date();
-    const month: string = (now.getMonth() + 1) < 10 ?
-      '0' + (now.getMonth() + 1).toString() : (now.getMonth() + 1).toString();
-    const day: string = now.getDate() < 10 ?
-      '0' + now.getDate().toString() : now.getDate().toString();
-    return now.getFullYear().toString() + '-' + month + '-' + day;
+  private async loadPendingFood(context: common.Context): Promise<void> {
+    if (this.pendingFoodQuestion !== '') {
+      return;
+    }
+    try {
+      const store = await preferences.getPreferences(context, PREF_NAME);
+      const value: string = store.getSync(PREF_KEY_PENDING_FOOD, '') as string;
+      this.pendingFoodQuestion = value;
+      if (value !== '') {
+        LOG.info('pending food question restored');
+      }
+    } catch (e) {
+      LOG.warn('load pending food failed: %{public}s', (e as Error).message);
+    }
+  }
+
+  private async savePendingFood(context: common.Context): Promise<void> {
+    const store = await preferences.getPreferences(context, PREF_NAME);
+    await store.put(PREF_KEY_PENDING_FOOD, this.pendingFoodQuestion);
+    await store.flush();
+  }
+
+  private async clearPendingFood(context: common.Context): Promise<void> {
+    this.pendingFoodQuestion = '';
+    const store = await preferences.getPreferences(context, PREF_NAME);
+    await store.put(PREF_KEY_PENDING_FOOD, '');
+    await store.flush();
   }
 
   private async callModel(apiKey: string, messages: Array<DeepSeekMessage>,
@@ -410,6 +421,15 @@ export class ChatAgent {
       return '';
     }
     return text.substring(start, end + 1);
+  }
+
+  private static today(): string {
+    const now = new Date();
+    const month: string = (now.getMonth() + 1) < 10 ?
+      '0' + (now.getMonth() + 1).toString() : (now.getMonth() + 1).toString();
+    const day: string = now.getDate() < 10 ?
+      '0' + now.getDate().toString() : now.getDate().toString();
+    return now.getFullYear().toString() + '-' + month + '-' + day;
   }
 
   private async ensurePrompt(context: common.Context): Promise<void> {
