@@ -1,5 +1,5 @@
 # Hmproject（鸿蒙健康应用）
-
+这是一个没有价值的垃圾项目
 基于 HarmonyOS NEXT（Stage 模型，API 12+）的健康应用工程，遵循以下编码规范：
 
 1. **数字资源化**：代码中不出现魔法数字，布局尺寸、文案、颜色等统一放到 `resources` 限定词目录下（`base/element/float.json`、`string.json`、`color.json`、`integer.json`），代码中通过 `$r()` 引用，并预留 `zh_CN` / `en_US` 等多语言限定词目录。
