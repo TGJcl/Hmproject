@@ -21,6 +21,10 @@
       "value": "16fp"
     },
     {
+      "name": "add_segment_font_size",
+      "value": "32fp"
+    },
+    {
       "name": "small_font_size",
       "value": "12fp"
     },

@@ -54,7 +54,7 @@ export struct ApiKeyPrompt {
           }
           .width('100%')
         }
-        .width($r('app.float.dialog_width'))
+        .width('100%')
         .padding($r('app.float.card_padding'))
         .borderRadius($r('app.float.card_radius'))
         .backgroundColor($r('app.color.card_background'))

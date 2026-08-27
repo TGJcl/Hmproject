@@ -209,8 +209,8 @@ struct Chat {
 
         Row({ space: $r('app.float.page_space') }) {
           Button({ type: ButtonType.Circle }) {
-            Text('🖼️')
-              .fontSize($r('app.float.text_font_size'))
+            Text('＋')
+              .fontSize($r('app.float.add_segment_font_size'))
           }
           .width($r('app.float.input_height'))
           .height($r('app.float.input_height'))
