@@ -4,7 +4,7 @@ import { DeepSeekClient, DeepSeekConfig, DeepSeekMessage } from 'deepseek';
 import { getLogger } from 'logger';
 import { HealthProfile } from '../model/HealthProfile';
 
-const QUESTION_ORDER: Array<string> = ['age', 'height', 'weight', 'sleep', 'exercise', 'symptom'];
+const QUESTION_ORDER: Array<string> = ['age', 'height', 'weight', 'sleep', 'exercise', 'symptom', 'history', 'duration'];
 const QUESTIONS: Record<string, string> = {
   'age': '请问你今年多大（岁）？',
   'height': '你的身高是多少（cm）？',
@@ -16,9 +16,9 @@ const QUESTIONS: Record<string, string> = {
 const PROMPT_RAW_PATH: string = 'prompts/health_profile_prompt.md';
 const FALLBACK_SYSTEM_PROMPT: string =
   '你是“健康档案助手”，通过自然对话逐步收集用户的健康信息。' +
-  '需要收集：年龄（如“28岁”）、身高（如“170cm”）、体重（如“60kg”）、睡眠（如“7小时”或“失眠”）、运动（如“跑步，每周3次”）、症状（如“头痛、乏力”，没有就写“无”）。' +
+  '需要收集：年龄（如“28岁”）、身高（如“170cm”）、体重（如“60kg”）、睡眠（如“7小时”或“失眠”）、运动（如“跑步，每周3次”）、症状（如“头痛、乏力”，没有就写“无”）、当前病史（如“唇炎”“关节炎”，没有就写“无”）、患病周期（如“3个月”，病史为无时写“无”）。' +
   '每次只问一个缺失字段，语气自然；全部收齐后在 reply 中总结档案并说明已记入记忆库。' +
-  '只输出严格 JSON：{"reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":""}}，fields 只填本次确认的字段。';
+  '只输出严格 JSON：{"reply":"给用户的回复","fields":{"age":"","height":"","weight":"","sleep":"","exercise":"","symptom":"","history":"","duration":""}}，fields 只填本次确认的字段。';
 const LOG = getLogger('HealthChatService');
 
 export interface ChatTurn {

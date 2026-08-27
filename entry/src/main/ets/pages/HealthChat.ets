@@ -7,6 +7,7 @@ import { HealthProfile } from '../model/HealthProfile';
 import { HealthChatService } from '../services/HealthChatService';
 import { MemoryService } from '../services/MemoryService';
 import { ConversationService } from '../services/ConversationService';
+import { DietAdviceService } from '../services/DietAdviceService';
 
 @Entry
 @Component
@@ -84,6 +85,14 @@ struct HealthChat {
         await MemoryService.init(context);
         const id: number = await MemoryService.saveHealthProfile(this.profile);
         this.pushBot('已存入记忆库（记录编号 ' + id + '）');
+        if (this.profile.history !== '' && this.profile.history !== '无') {
+          const advice: string = await DietAdviceService.queryDietAdviceAndStore(context, this.profile.history);
+          if (advice !== '') {
+            this.pushBot('根据' + this.profile.history + '，为你查询到以下饮食注意事项：' + '\n' + advice);
+          } else {
+            this.pushBot('未能查询到' + this.profile.history + '的饮食建议，可稍后重试。');
+          }
+        }
       }
     } finally {
       this.thinking = false;

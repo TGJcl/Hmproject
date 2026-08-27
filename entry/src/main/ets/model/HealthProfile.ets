@@ -5,10 +5,13 @@ export class HealthProfile {
   sleep: string = '';
   exercise: string = '';
   symptom: string = '';
+  history: string = '';
+  duration: string = '';
 
   isComplete(): boolean {
     return this.age !== '' && this.height !== '' && this.weight !== '' &&
-      this.sleep !== '' && this.exercise !== '' && this.symptom !== '';
+      this.sleep !== '' && this.exercise !== '' && this.symptom !== '' &&
+      this.history !== '' && this.duration !== '';
   }
 
   getField(key: string): string {
@@ -19,6 +22,8 @@ export class HealthProfile {
       case 'sleep': return this.sleep;
       case 'exercise': return this.exercise;
       case 'symptom': return this.symptom;
+      case 'history': return this.history;
+      case 'duration': return this.duration;
       default: return '';
     }
   }
@@ -31,12 +36,15 @@ export class HealthProfile {
       case 'sleep': this.sleep = value; break;
       case 'exercise': this.exercise = value; break;
       case 'symptom': this.symptom = value; break;
+      case 'history': this.history = value; break;
+      case 'duration': this.duration = value; break;
       default: break;
     }
   }
 
   toMemoryText(): string {
     return '年龄' + this.age + '，身高' + this.height + '，体重' + this.weight +
-      '，睡眠' + this.sleep + '，运动' + this.exercise + '，症状' + this.symptom;
+      '，睡眠' + this.sleep + '，运动' + this.exercise + '，症状' + this.symptom +
+      '，病史' + this.history + '，患病周期' + this.duration;
   }
 }
