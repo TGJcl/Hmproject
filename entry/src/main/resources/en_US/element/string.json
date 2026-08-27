@@ -47,6 +47,14 @@
     {
       "name": "image_error",
       "value": "Failed to load image"
+    },
+    {
+      "name": "ai_input_placeholder",
+      "value": "Ask your health question…"
+    },
+    {
+      "name": "img_only_send",
+      "value": "I uploaded an image"
     }
   ]
 }

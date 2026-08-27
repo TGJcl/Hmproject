@@ -21,6 +21,10 @@
       "value": "16fp"
     },
     {
+      "name": "small_font_size",
+      "value": "12fp"
+    },
+    {
       "name": "score_font_size",
       "value": "40fp"
     },
@@ -43,6 +47,18 @@
     {
       "name": "image_size",
       "value": "120vp"
+    },
+    {
+      "name": "image_bubble_size",
+      "value": "180vp"
+    },
+    {
+      "name": "image_preview_size",
+      "value": "64vp"
+    },
+    {
+      "name": "image_remove_size",
+      "value": "20vp"
     },
     {
       "name": "input_height",

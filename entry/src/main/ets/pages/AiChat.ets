@@ -1,5 +1,7 @@
 import { common } from '@kit.AbilityKit';
+import { image } from '@kit.ImageKit';
 import { DeepSeekConfig } from 'deepseek';
+import { ImageLoader, ImagePicker } from 'image';
 import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
 import { ChatMessage } from '../model/ChatMessage';
@@ -7,6 +9,7 @@ import { AiChatService } from '../services/AiChatService';
 import { ConversationService } from '../services/ConversationService';
 
 const AI_GREETING: string = '你好！我是 AI 健康助手，可以结合你的记忆库回答健康问题。';
+const IMAGE_TAG: string = '[图片]';
 
 @Entry
 @Component
@@ -15,6 +18,8 @@ struct AiChat {
   @State input: string = '';
   @State thinking: boolean = false;
   @State showKeyDialog: boolean = false;
+  @State pendingImageUri: string = '';
+  @State pendingImagePixelMap: image.PixelMap | undefined = undefined;
 
   aboutToAppear(): void {
     this.checkApiKey();
@@ -43,6 +48,34 @@ struct AiChat {
     ConversationService.recordAi(context, role, text);
   }
 
+  private recordUserMessage(text: string, imageUri: string): void {
+    let content: string = text;
+    if (imageUri !== '') {
+      content = (content === '' ? IMAGE_TAG : content + '\n' + IMAGE_TAG) + imageUri;
+    }
+    this.recordMessage('user', content);
+  }
+
+  private async pickImage(): Promise<void> {
+    const uri: string = await ImagePicker.pick();
+    if (uri === '') {
+      return;
+    }
+    try {
+      const pixelMap: image.PixelMap = await ImageLoader.loadPixelMapFromPath(uri);
+      this.pendingImageUri = uri;
+      this.pendingImagePixelMap = pixelMap;
+    } catch (e) {
+      this.pendingImageUri = uri;
+      this.pendingImagePixelMap = undefined;
+    }
+  }
+
+  private clearPendingImage(): void {
+    this.pendingImageUri = '';
+    this.pendingImagePixelMap = undefined;
+  }
+
   private async saveApiKey(key: string): Promise<void> {
     const context = getContext(this) as common.UIAbilityContext;
     await DeepSeekConfig.setApiKey(context, key);
@@ -56,19 +89,29 @@ struct AiChat {
 
   private async handleSend(): Promise<void> {
     const text: string = this.input.trim();
-    if (text === '' || this.thinking) {
+    const hasImage: boolean = this.pendingImageUri !== '';
+    if ((text === '' && !hasImage) || this.thinking) {
       return;
     }
+    const imageUri: string = this.pendingImageUri;
+    const imagePixelMap: image.PixelMap | undefined = this.pendingImagePixelMap;
     this.input = '';
+    this.clearPendingImage();
+
     const userMsg = new ChatMessage();
     userMsg.role = 'user';
     userMsg.text = text;
+    userMsg.imageUri = imageUri;
+    userMsg.imagePixelMap = imagePixelMap;
     this.messages.push(userMsg);
-    this.recordMessage('user', text);
+    this.recordUserMessage(text, imageUri);
+
     this.thinking = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const reply: string = await AiChatService.chat(context, text);
+      const question: string = text === '' ?
+        context.resourceManager.getStringSync($r('app.string.img_only_send').id) : text;
+      const reply: string = await AiChatService.chat(context, question);
       this.pushBot(reply);
     } catch (e) {
       this.pushBot('请求失败，请检查 API Key 或网络后重试。');
@@ -88,7 +131,7 @@ struct AiChat {
         List({ space: $r('app.float.page_space') }) {
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
-              ChatBubble({ role: msg.role, text: msg.text })
+              ChatBubble({ role: msg.role, text: msg.text, imagePixelMap: msg.imagePixelMap })
             }
           }, (msg: ChatMessage, index: number) => index.toString())
           if (this.thinking) {
@@ -100,11 +143,63 @@ struct AiChat {
         .layoutWeight(1)
         .width('100%')
         .padding($r('app.float.page_margin'))
+
+        if (this.pendingImageUri !== '') {
+          Row() {
+            Stack({ alignContent: Alignment.TopEnd }) {
+              if (this.pendingImagePixelMap !== undefined) {
+                Image(this.pendingImagePixelMap)
+                  .width($r('app.float.image_preview_size'))
+                  .height($r('app.float.image_preview_size'))
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius($r('app.float.card_radius'))
+              } else {
+                Row()
+                  .width($r('app.float.image_preview_size'))
+                  .height($r('app.float.image_preview_size'))
+                  .backgroundColor($r('app.color.card_background'))
+                  .borderRadius($r('app.float.card_radius'))
+              }
+              Text('×')
+                .fontSize($r('app.float.small_font_size'))
+                .fontColor($r('app.color.button_text'))
+                .textAlign(TextAlign.Center)
+                .width($r('app.float.image_remove_size'))
+                .height($r('app.float.image_remove_size'))
+                .backgroundColor($r('app.color.mask_color'))
+                .borderRadius($r('app.float.card_radius'))
+                .onClick(() => {
+                  this.clearPendingImage();
+                })
+            }
+            .width($r('app.float.image_preview_size'))
+            .height($r('app.float.image_preview_size'))
+          }
+          .width('100%')
+          .padding({
+            left: $r('app.float.page_margin'),
+            top: $r('app.float.page_space'),
+            bottom: $r('app.float.page_space')
+          })
+        }
+
         Row({ space: $r('app.float.page_space') }) {
-          TextInput({ placeholder: $r('app.string.input_placeholder'), text: this.input })
+          Button({ type: ButtonType.Circle }) {
+            Text('🖼️')
+              .fontSize($r('app.float.text_font_size'))
+          }
+          .width($r('app.float.input_height'))
+          .height($r('app.float.input_height'))
+          .backgroundColor($r('app.color.card_background'))
+          .onClick(() => {
+            this.pickImage();
+          })
+          TextInput({ placeholder: $r('app.string.ai_input_placeholder'), text: this.input })
             .layoutWeight(1)
             .height($r('app.float.input_height'))
             .fontSize($r('app.float.text_font_size'))
+            .backgroundColor($r('app.color.card_background'))
+            .borderRadius($r('app.float.card_radius'))
             .onChange((value: string) => {
               this.input = value;
             })

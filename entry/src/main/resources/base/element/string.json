@@ -103,6 +103,14 @@
     {
       "name": "image_error",
       "value": "图片读取失败"
+    },
+    {
+      "name": "ai_input_placeholder",
+      "value": "输入你的健康问题…"
+    },
+    {
+      "name": "img_only_send",
+      "value": "我上传了一张图片"
     }
   ]
 }

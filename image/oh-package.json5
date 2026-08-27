@@ -1,6 +1,8 @@
 {
   "name": "image",
   "version": "1.0.0",
-  "description": "图片能力 HAR：封装图片读取与 PixelMap 创建能力",
-  "dependencies": {}
+  "description": "图片能力 HAR：封装图片读取、相册选图与 PixelMap 创建能力",
+  "dependencies": {
+    "logger": "file:../logger"
+  }
 }
