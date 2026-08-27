@@ -8,3 +8,4 @@
 /.test
 **/.preview
 **/oh-package-lock.json
+**/oh-package-lock.json5
