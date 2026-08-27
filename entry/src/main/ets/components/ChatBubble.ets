@@ -25,9 +25,11 @@ export struct ChatBubble {
             .padding($r('app.float.card_padding'))
             .backgroundColor(this.role === 'user' ? $r('app.color.bubble_user') : $r('app.color.card_background'))
             .borderRadius($r('app.float.card_radius'))
-            .constraintSize({ maxWidth: $r('app.float.bubble_max_width') })
+            // .constraintSize({ maxWidth: $r('app.float.bubble_max_width') })
+            .width('100%')
         }
-      }
+      }.alignItems(this.role === 'bot' ? HorizontalAlign.Start:HorizontalAlign.End)
+      .width('100%')
       .padding(this.imagePixelMap !== undefined ? $r('app.float.card_space') : 0)
     }
     .width('100%')
