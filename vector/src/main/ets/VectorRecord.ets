@@ -5,3 +5,9 @@ export interface VectorRecord {
   metadata: string;
   score: number;
 }
+
+export interface VectorMetaRecord {
+  id: number;
+  content: string;
+  metadata: string;
+}

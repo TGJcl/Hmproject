@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { relationalStore } from '@kit.ArkData';
 import { RdbHelper } from 'database';
 import { getLogger } from 'logger';
-import { VectorRecord } from './VectorRecord';
+import { VectorRecord, VectorMetaRecord } from './VectorRecord';
 
 const TABLE_NAME: string = 'vector_memory';
 const SQL_CREATE_TABLE: string =
@@ -43,6 +43,29 @@ export class VectorDatabase {
     } finally {
       resultSet.close();
     }
+  }
+
+  static async findByMetadataLike(pattern: string): Promise<Array<VectorMetaRecord>> {
+    const sql: string = 'SELECT id, content, metadata FROM ' + TABLE_NAME + ' WHERE metadata LIKE ?';
+    const resultSet = await RdbHelper.querySql(sql, [pattern]);
+    const records: Array<VectorMetaRecord> = [];
+    try {
+      while (resultSet.goToNextRow()) {
+        records.push({
+          id: resultSet.getLong(resultSet.getColumnIndex('id')),
+          content: resultSet.getString(resultSet.getColumnIndex('content')),
+          metadata: resultSet.getString(resultSet.getColumnIndex('metadata'))
+        });
+      }
+    } finally {
+      resultSet.close();
+    }
+    return records;
+  }
+
+  static async deleteById(id: number): Promise<void> {
+    await RdbHelper.executeSql('DELETE FROM ' + TABLE_NAME + ' WHERE id = ?', [id]);
+    LOG.info('delete memory, id=%{public}d', id);
   }
 
   static async search(query: Array<number>, topK: number): Promise<Array<VectorRecord>> {
