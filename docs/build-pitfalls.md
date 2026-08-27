@@ -119,6 +119,28 @@
 - 验证：HAP 同时包含 `libs/arm64-v8a`（完整 embedding + mindspore-lite）与 `libs/x86_64`（桩 embedding），hdc 实测安装成功。
 - 结论：模拟器上 AI 向量/RAG 用占位实现，真机（arm64）自动走完整推理。
 
+### 13. 模型文件只读导致 CompileResource 失败（Error Code 11204003）
+
+- 现象：
+
+  ```
+  hvigor ERROR: Failed :entry:default@CompileResource...
+  Error Code: 11204003
+  Error: File Resource Error
+  Error Message: Failed to delete the directory or file 'D:\HmProject\entry\build\default\intermediates\res\default\resources\rawfile\yolov8n.ms', No error.
+  ```
+
+- 原因：下载/转换得到的 .ms 模型文件自带 Windows **只读（ReadOnly）属性**。构建时该文件被复制到 `build/.../intermediates/.../rawfile/` 后，restool 删除中间产物时被系统拒绝，于是报 “Failed to delete ... No error”。
+- 解决：清除模型源文件与 rawfile 副本的只读属性，并清理构建中间目录里的只读标志：
+
+  ```powershell
+  attrib -r "D:\HmProject\models\yolov8n\yolov8n.ms"
+  attrib -r "D:\HmProject\entry\src\main\resources\rawfile\yolov8n.ms"
+  # 批量清理某个目录下所有文件的只读属性
+  Get-ChildItem <目录> -Recurse -File | ForEach-Object { $_.IsReadOnly = $false }
+  ```
+
+- 经验：新加入的模型/大体积二进制资源若报 “Failed to delete ... No error”，优先检查文件是否只读。
 ## 五、命令行小贴士
 
 - PowerShell 调用带空格的程序路径必须用 `&`：`& "D:\DevEco_Stdio\DevEco Studio\tools\node\node.exe" ...`
