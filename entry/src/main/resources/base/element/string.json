@@ -119,14 +119,6 @@
     {
       "name": "api_key_invalid_toast",
       "value": "API Key 可能有误，请重新填写"
-    },
-    {
-      "name": "tab_health_profile",
-      "value": "健康档案"
-    },
-    {
-      "name": "tab_ai_qa",
-      "value": "AI 问答"
     }
   ]
 }

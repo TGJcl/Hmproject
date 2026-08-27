@@ -17,13 +17,13 @@ struct Chat {
   @State input: string = '';
   @State thinking: boolean = false;
   @State showKeyDialog: boolean = false;
-  @State workflow: AgentWorkflow = AgentWorkflow.HEALTH_PROFILE;
+  @State workflow: AgentWorkflow = AgentWorkflow.AI_QA;
   @State pendingImageUri: string = '';
   @State pendingImagePixelMap: image.PixelMap | undefined = undefined;
   private agent: ChatAgent = new ChatAgent();
 
   aboutToAppear(): void {
-    this.switchWorkflow(AgentWorkflow.HEALTH_PROFILE);
+    this.pushBot(this.agent.greeting());
     this.checkApiKey();
   }
 
@@ -33,15 +33,6 @@ struct Chat {
     if (key === '') {
       this.showKeyDialog = true;
     }
-  }
-
-  private switchWorkflow(workflow: AgentWorkflow): void {
-    this.workflow = workflow;
-    this.agent.setWorkflow(workflow);
-    this.messages = [];
-    this.input = '';
-    this.clearPendingImage();
-    this.pushBot(this.agent.greeting());
   }
 
   private pushBot(text: string): void {
@@ -128,6 +119,7 @@ struct Chat {
       const question: string = text === '' ?
         context.resourceManager.getStringSync($r('app.string.img_only_send').id) : text;
       const result = await this.agent.run(context, question);
+      this.workflow = result.workflow;
       if (result.needKey || result.apiError) {
         const toastText: string = result.needKey ?
           context.resourceManager.getStringSync($r('app.string.api_key_missing_toast').id) :
@@ -149,36 +141,6 @@ struct Chat {
   build() {
     Stack() {
       Column() {
-        Row({ space: $r('app.float.page_space') }) {
-          Button($r('app.string.tab_health_profile'))
-            .layoutWeight(1)
-            .height($r('app.float.button_height'))
-            .backgroundColor(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
-              $r('app.color.button_background') : $r('app.color.card_background'))
-            .fontColor(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
-              $r('app.color.button_text') : $r('app.color.text_primary'))
-            .onClick(() => {
-              this.switchWorkflow(AgentWorkflow.HEALTH_PROFILE);
-            })
-          Button($r('app.string.tab_ai_qa'))
-            .layoutWeight(1)
-            .height($r('app.float.button_height'))
-            .backgroundColor(this.workflow === AgentWorkflow.AI_QA ?
-              $r('app.color.button_background') : $r('app.color.card_background'))
-            .fontColor(this.workflow === AgentWorkflow.AI_QA ?
-              $r('app.color.button_text') : $r('app.color.text_primary'))
-            .onClick(() => {
-              this.switchWorkflow(AgentWorkflow.AI_QA);
-            })
-        }
-        .width('100%')
-        .padding($r('app.float.page_margin'))
-        Text(this.workflow === AgentWorkflow.HEALTH_PROFILE ?
-          $r('app.string.chat_title') : $r('app.string.ai_chat_title'))
-          .fontSize($r('app.float.title_font_size'))
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Bold)
-          .padding({ left: $r('app.float.page_margin'), bottom: $r('app.float.page_margin') })
         List({ space: 12 }) {
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
@@ -235,23 +197,17 @@ struct Chat {
         }
 
         Row({ space: $r('app.float.page_space') }) {
-          if (this.workflow === AgentWorkflow.AI_QA) {
-            Button({ type: ButtonType.Circle }) {
-              Text('🖼️')
-                .fontSize($r('app.float.text_font_size'))
-            }
-            .width($r('app.float.input_height'))
-            .height($r('app.float.input_height'))
-            .backgroundColor($r('app.color.card_background'))
-            .onClick(() => {
-              this.pickImage();
-            })
+          Button({ type: ButtonType.Circle }) {
+            Text('🖼️')
+              .fontSize($r('app.float.text_font_size'))
           }
-          TextInput({
-            placeholder: this.workflow === AgentWorkflow.AI_QA ?
-              $r('app.string.ai_input_placeholder') : $r('app.string.input_placeholder'),
-            text: this.input
+          .width($r('app.float.input_height'))
+          .height($r('app.float.input_height'))
+          .backgroundColor($r('app.color.card_background'))
+          .onClick(() => {
+            this.pickImage();
           })
+          TextInput({ placeholder: $r('app.string.ai_input_placeholder'), text: this.input })
             .layoutWeight(1)
             .height($r('app.float.input_height'))
             .fontSize($r('app.float.text_font_size'))

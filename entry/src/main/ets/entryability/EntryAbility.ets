@@ -10,7 +10,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    windowStage.loadContent('pages/Index', (err) => {
+    windowStage.loadContent('pages/Chat', (err) => {
       if (err.code) {
         LOG.error('Failed to load the content. Cause: %{public}s', JSON.stringify(err));
         return;
