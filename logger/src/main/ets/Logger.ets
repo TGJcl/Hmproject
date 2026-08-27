@@ -32,7 +32,7 @@ export class Logger {
     if (level < LogConfig.getEffectiveLevel(this.moduleName)) {
       return;
     }
-    const tag: string = this.moduleName;
+    const tag: string = "JclHealth" + this.moduleName;
     switch (level) {
       case LogLevel.DEBUG:
         hilog.debug(DOMAIN, tag, message, ...args);
