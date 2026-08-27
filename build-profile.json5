@@ -126,8 +126,18 @@
           ]
         }
       ]
+    },
+    {
+      "name": "conversation",
+      "srcPath": "./conversation",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
     }
   ]
 }
-
-

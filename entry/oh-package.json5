@@ -9,6 +9,7 @@
     "logger": "file:../logger",
     "embedding": "file:../embedding",
     "vector": "file:../vector",
-    "deepseek": "file:../deepseek"
+    "deepseek": "file:../deepseek",
+    "conversation": "file:../conversation"
   }
 }

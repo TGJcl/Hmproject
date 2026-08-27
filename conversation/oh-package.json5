@@ -1,0 +1,9 @@
+{
+  "name": "conversation",
+  "version": "1.0.0",
+  "description": "对话记录业务 HAR：用户对话原文的本地持久化（基于 database HAR）",
+  "dependencies": {
+    "database": "file:../database",
+    "logger": "file:../logger"
+  }
+}

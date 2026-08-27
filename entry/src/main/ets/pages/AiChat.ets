@@ -4,6 +4,7 @@ import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
 import { ChatMessage } from '../model/ChatMessage';
 import { AiChatService } from '../services/AiChatService';
+import { ConversationService } from '../services/ConversationService';
 
 const AI_GREETING: string = '你好！我是 AI 健康助手，可以结合你的记忆库回答健康问题。';
 
@@ -34,6 +35,12 @@ struct AiChat {
     msg.role = 'bot';
     msg.text = text;
     this.messages.push(msg);
+    this.recordMessage('bot', text);
+  }
+
+  private recordMessage(role: string, text: string): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    ConversationService.recordAi(context, role, text);
   }
 
   private async saveApiKey(key: string): Promise<void> {
@@ -57,6 +64,7 @@ struct AiChat {
     userMsg.role = 'user';
     userMsg.text = text;
     this.messages.push(userMsg);
+    this.recordMessage('user', text);
     this.thinking = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;

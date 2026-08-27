@@ -4,6 +4,7 @@ import { ChatMessage } from '../model/ChatMessage';
 import { HealthProfile } from '../model/HealthProfile';
 import { HealthChatService } from '../services/HealthChatService';
 import { MemoryService } from '../services/MemoryService';
+import { ConversationService } from '../services/ConversationService';
 
 @Entry
 @Component
@@ -22,6 +23,12 @@ struct HealthChat {
     msg.role = 'bot';
     msg.text = text;
     this.messages.push(msg);
+    this.recordMessage('bot', text);
+  }
+
+  private recordMessage(role: string, text: string): void {
+    const context = getContext(this) as common.UIAbilityContext;
+    ConversationService.recordHealth(context, role, text);
   }
 
   private async handleSend(): Promise<void> {
@@ -34,6 +41,7 @@ struct HealthChat {
     userMsg.role = 'user';
     userMsg.text = text;
     this.messages.push(userMsg);
+    this.recordMessage('user', text);
 
     const turn = HealthChatService.handleUserMessage(text, this.profile);
     this.profile = turn.profile;

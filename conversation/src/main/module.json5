@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "conversation",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}
