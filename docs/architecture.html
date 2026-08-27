@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HmProject 项目架构图</title>
+<style>
+  :root{
+    --bg:#f5f6fa; --card:#ffffff; --text:#182431; --muted:#66707b; --border:#d8dce3;
+    --blue:#0a59f7; --green:#16a34a; --orange:#ea6a00; --purple:#7c3aed; --red:#dc2626; --teal:#0d9488;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+  header{background:linear-gradient(135deg,#0a59f7,#5b8def);color:#fff;padding:30px 36px}
+  header h1{margin:0;font-size:26px}
+  header p{margin:6px 0 0;opacity:.92;font-size:14px}
+  main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+  section{margin-top:34px}
+  h2{font-size:20px;border-left:4px solid var(--blue);padding-left:10px;margin:0 0 4px}
+  .sec-desc{color:var(--muted);font-size:13px;margin:2px 0 16px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 18px}
+  .legend span{font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card)}
+  .layer-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+  .layer-title{font-size:14px;font-weight:600;margin-bottom:12px}
+  .arch-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .arch-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+  .node{display:inline-flex;align-items:center;justify-content:center;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;text-align:center;min-width:64px}
+  .node b{font-weight:600}
+  .node.small{font-size:12px;padding:5px 9px}
+  .node.blue{border-color:#bcd0fb;background:#eef4ff;color:#0842b8}
+  .node.green{border-color:#bde7c9;background:#eefaf1;color:#0c6b30}
+  .node.orange{border-color:#f7d3a6;background:#fff6e9;color:#a34a00}
+  .node.purple{border-color:#d3c4f7;background:#f5f1ff;color:#5b21b6}
+  .node.teal{border-color:#a8e3dc;background:#ecfaf8;color:#0b6f66}
+  .node.red{border-color:#f5bcbc;background:#fdf0f0;color:#a51212}
+  .node.gray{background:#f2f4f7;border-color:#d0d5dd;color:#4b5563}
+  .arrow{font-size:14px;color:var(--muted);line-height:1;padding:1px 0}
+  .arrow.r{display:inline-block;margin:0 6px}
+  .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .module-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .module-card h3{margin:0 0 2px;font-size:15px}
+  .module-card .pkg{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .module-card .inner{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .module-card .note{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
+  .flow{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+  .flow h3{margin:0 0 12px;font-size:15px}
+  .flow-step{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .flow-step .idx{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .flow-step .cond{font-size:12px;color:var(--muted)}
+  .branch{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 4px 32px}
+  .branch .col{display:flex;flex-direction:column;align-items:center;gap:4px}
+  code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:12px}
+  @media (max-width:640px){ header{padding:20px} main{padding:14px 12px 40px} .module-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1>HmProject 健康应用 · 项目架构图</h1>
+  <p>鸿蒙 Stage 模型（API 12）· entry（HAP）+ 9 个 HAR 能力模块 · 一个 Agent、多工作流 · 本地向量记忆 + DeepSeek</p>
+</header>
+<main>
+
+<!-- ==================== 项目总体架构 ==================== -->
+<section>
+  <h2>一、项目总体架构图</h2>
+  <p class="sec-desc">自底向上：数据/外部依赖 → 能力 HAR → 业务服务 → UI；横向箭头为调用方向。</p>
+  <div class="legend">
+    <span>🟦 UI/页面</span><span>🟩 业务服务</span><span>🟧 能力 HAR</span><span>🟪 原生/Worker</span><span>🟫 数据/外部</span>
+  </div>
+
+  <div class="layer-box">
+    <div class="arch-col">
+      <div class="arch-row">
+        <span class="node gray">DeepSeek API<br><small>api.deepseek.com</small></span>
+        <span class="arrow r">◀▶</span>
+        <span class="node gray">维基百科中文<br><small>饮食资料</small></span>
+        <span class="arrow r">◀▶</span>
+        <span class="node gray">系统相册<br><small>PhotoViewPicker</small></span>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <span class="node blue"><b>Chat 页面</b><br>消息列表 · 输入栏 · 图片上传 · API Key 弹窗</span>
+        <span class="arrow r">→</span>
+        <span class="node blue">组件<br>ChatBubble · ApiKeyPrompt</span>
+        <span class="arrow r">→</span>
+        <span class="node blue">模型<br>ChatMessage · HealthProfile</span>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <span class="node green">ChatAgent<br>（一个 Agent · 多工作流）</span>
+        <span class="node green">MemoryService<br>档案/记忆</span>
+        <span class="node green">KnowledgeService<br>膳食知识导入</span>
+        <span class="node green">DietAdviceService<br>饮食建议</span>
+        <span class="node green">FoodRecognitionService<br>食物识别</span>
+        <span class="node green">ConversationService<br>对话记录</span>
+        <span class="node green">ModelWorkerService<br>模型 RPC</span>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <span class="node purple">ModelWorker 线程<br>embedding / yolo 推理</span>
+        <span class="arrow r">↕</span>
+        <span class="node green">ModelWorkerService</span>
+        <span class="arrow r">→</span>
+        <span class="node orange">embedding HAR</span>
+        <span class="node orange">yolo HAR</span>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <span class="node orange">database HAR</span>
+        <span class="node orange">network HAR</span>
+        <span class="node orange">image HAR</span>
+        <span class="node orange">logger HAR</span>
+        <span class="node orange">vector HAR</span>
+        <span class="node orange">deepseek HAR</span>
+        <span class="node orange">conversation HAR</span>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="arch-row">
+        <span class="node gray">health.db<br>vector_memory · conversation_message · health_record</span>
+        <span class="node gray">Preferences<br>API Key · 待确认状态</span>
+        <span class="node gray">rawfile<br>模型 · 提示词 · 知识 JSON</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 各模块架构 ==================== -->
+<section>
+  <h2>二、各个模块架构图</h2>
+  <p class="sec-desc">每个模块的内部结构、对外接口与依赖方向。</p>
+  <div class="module-grid">
+
+    <div class="module-card">
+      <h3>entry（应用入口 HAP）</h3>
+      <p class="pkg">业务与页面分离</p>
+      <div class="inner">
+        <span class="node blue">pages / Chat</span>
+        <span class="arrow">▼</span>
+        <span class="arch-row">
+          <span class="node blue small">components<br>ChatBubble / ApiKeyPrompt</span>
+          <span class="node gray small">model<br>ChatMessage / HealthProfile</span>
+          <span class="node purple small">workers / ModelWorker</span>
+        </span>
+        <span class="arrow">▼</span>
+        <span class="node green">services（ChatAgent / Memory / Knowledge / DietAdvice / FoodRecognition / Conversation / ModelWorkerService）</span>
+      </div>
+      <p class="note">入口：EntryAbility → loadContent('pages/Chat')</p>
+    </div>
+
+    <div class="module-card">
+      <h3>database（数据库能力）</h3>
+      <p class="pkg">能力 HAR · 依赖：logger</p>
+      <div class="inner">
+        <span class="node orange">DatabaseManager<br>示例表 health_record</span>
+        <span class="arrow">▼</span>
+        <span class="node orange">RdbHelper<br>init / executeSql / insert / querySql</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">relationalStore → health.db</span>
+      </div>
+    </div>
+
+    <div class="module-card">
+      <h3>network（网络能力）</h3>
+      <p class="pkg">能力 HAR · 无依赖</p>
+      <div class="inner">
+        <span class="node orange">NetworkClient<br>get / postJson</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">@kit.NetworkKit http（异步）</span>
+      </div>
+    </div>
+
+    <div class="module-card">
+      <h3>image（图片能力）</h3>
+      <p class="pkg">能力 HAR · 依赖：logger</p>
+      <div class="inner">
+        <span class="arch-row">
+          <span class="node orange small">ImageLoader<br>loadPixelMapFromPath / RawFile</span>
+          <span class="node orange small">ImagePicker<br>pick（相册选图）</span>
+        </span>
+        <span class="arrow">▼</span>
+        <span class="node gray">@kit.ImageKit · @kit.MediaLibraryKit</span>
+      </div>
+    </div>
+
+    <div class="module-card">
+      <h3>logger（日志能力）</h3>
+      <p class="pkg">能力 HAR · 无依赖</p>
+      <div class="inner">
+        <span class="node orange">getLogger(模块) → 按模块输出业务日志</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">LogLevel / LogManager → hilog</span>
+      </div>
+    </div>
+
+    <div class="module-card">
+      <h3>embedding（向量化能力）</h3>
+      <p class="pkg">能力 HAR · 依赖：logger</p>
+      <div class="inner">
+        <span class="node orange">EmbeddingManager → 可切换 Provider</span>
+        <span class="arrow">▼</span>
+        <span class="arch-row">
+          <span class="node teal small">LocalHashEmbedding<br>占位（无模型时）</span>
+          <span class="node purple small">NativeEmbedding<br>libembedding.so</span>
+        </span>
+        <span class="arrow">▼</span>
+        <span class="node gray">jina-embeddings-v2-base-zh-static.ms（645MB，沙箱）</span>
+      </div>
+      <p class="note">推理在 ModelWorker 线程内执行</p>
+    </div>
+
+    <div class="module-card">
+      <h3>vector（向量数据库）</h3>
+      <p class="pkg">能力 HAR · 依赖：database / logger</p>
+      <div class="inner">
+        <span class="node orange">VectorDatabase<br>add / search / existsByMetadata / findByMetadataLike / deleteById / cosineSimilarity</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">RdbHelper → vector_memory 表（content/vector/metadata/created_at）</span>
+      </div>
+      <p class="note">存：健康档案、膳食知识、饮食建议、对话事实</p>
+    </div>
+
+    <div class="module-card">
+      <h3>deepseek（大模型能力）</h3>
+      <p class="pkg">能力 HAR · 依赖：network / logger</p>
+      <div class="inner">
+        <span class="arch-row">
+          <span class="node orange small">DeepSeekClient<br>chat(messages)</span>
+          <span class="node orange small">DeepSeekConfig<br>API Key（Preferences）</span>
+        </span>
+        <span class="arrow">▼</span>
+        <span class="node gray">NetworkClient → api.deepseek.com/chat/completions</span>
+      </div>
+    </div>
+
+    <div class="module-card">
+      <h3>conversation（对话记录）</h3>
+      <p class="pkg">业务 HAR · 依赖：database / logger</p>
+      <div class="inner">
+        <span class="node orange">ConversationStore<br>addMessage / getHistory / clearHistory</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">RdbHelper → conversation_message 表（session_id/role/text/created_at）</span>
+      </div>
+      <p class="note">会话：health_chat / ai_chat</p>
+    </div>
+
+    <div class="module-card">
+      <h3>yolo（食物识别）</h3>
+      <p class="pkg">能力 HAR · 原生 NDK</p>
+      <div class="inner">
+        <span class="node orange">YoloDetector<br>init / initFromBuffer / detect</span>
+        <span class="arrow">▼</span>
+        <span class="node purple">libyolo.so（NAPI，Worker 线程）</span>
+        <span class="arrow">▼</span>
+        <span class="node gray">yolov8n.ms（rawfile，COCO 80 类）</span>
+      </div>
+      <p class="note">x86_64 模拟器为桩实现，arm64 真机完整推理</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ==================== 各模块流程图 ==================== -->
+<section>
+  <h2>三、各个模块流程图</h2>
+  <p class="sec-desc">核心业务链路，从用户输入到结果展示。</p>
+
+  <div class="flow">
+    <h3>3.1 统一对话主流程（档案采集 / 健康问答 / 事实记录）</h3>
+    <div class="arch-col">
+      <span class="node blue">用户发送消息（文字 / 图片）</span>
+      <span class="arrow">▼</span>
+      <span class="node green">ChatAgent.run / runWithImage</span>
+      <span class="arrow">▼</span>
+      <span class="node green">ModelWorkerService.embed 向量化（Worker）</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">VectorDatabase.search → RAG 检索结果 + 打分</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">拼提示词（当前未痊愈状况 + 档案 + 记忆片段 + 用户输入）</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">DeepSeek → 返回严格 JSON</span>
+      <span class="arrow">▼</span>
+      <span class="node green">ChatAgent.handleContent 解析</span>
+      <span class="arrow">▼</span>
+      <div class="flow-step">
+        <span class="idx">分</span>
+        <span class="node teal small">mode=profile → 抽取 8 字段建档</span>
+        <span class="node orange small">mode=food_check → 进入食物确认</span>
+        <span class="node blue small">mode=qa → 直接回复</span>
+      </div>
+      <span class="arrow">▼</span>
+      <span class="node green">facts 事实入库（去重 / 生命周期）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">页面展示回复 · 对话记录落库</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.2 健康档案采集 + 饮食建议流程</h3>
+    <div class="arch-col">
+      <span class="node blue">用户提供健康信息（“我28岁，170cm…”）</span>
+      <span class="arrow">▼</span>
+      <span class="node teal">mode=profile · 抽取 fields · 逐项追问（8 个字段）</span>
+      <span class="arrow">▼</span>
+      <span class="node teal">isComplete → 生成档案文本</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">MemoryService.saveHealthProfile → 向量化 → vector_memory（metadata=health_profile）</span>
+      <span class="arrow">▼</span>
+      <div class="flow-step">
+        <span class="idx">分</span>
+        <span class="node orange small">病史非空且非“无”</span>
+        <span class="node gray small">病史为“无” → 结束</span>
+      </div>
+      <span class="arrow">▼</span>
+      <span class="node green">DietAdviceService：维基百科 API → 正文 → DeepSeek 归纳饮食注意事项 → 向量入库（web_diet_advice）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">页面展示：档案已存 + 饮食建议</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.3 食物确认流程（模型判定 + 状态持久化）</h3>
+    <div class="arch-col">
+      <span class="node blue">用户问“西瓜可以吗”</span>
+      <span class="arrow">▼</span>
+      <span class="node green">standardRun：未痊愈状况列表进上下文</span>
+      <span class="arrow">▼</span>
+      <div class="flow-step">
+        <span class="idx">判</span>
+        <span class="node orange small">模型返回 mode=food_check</span>
+        <span class="node blue small">返回 mode=qa → 直接回答</span>
+      </div>
+      <span class="arrow">▼</span>
+      <span class="node green">保存 pending_food_question（Preferences，重启可续）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">模型先逐一确认未痊愈状况（“感冒现在好了吗？”）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">用户回复“是 / 已经好了”</span>
+      <span class="arrow">▼</span>
+      <span class="node green">finishFoodCheck：携带“之前询问 + 确认结果”再问 DeepSeek</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">明确回答能否食用 + 注意事项</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.4 图片上传 → YOLO 识别 → 能否食用</h3>
+    <div class="arch-col">
+      <span class="node blue">点击 🖼️ → ImagePicker（PhotoViewPicker 相册选图）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">预览缩略图（可移除）→ 点击发送</span>
+      <span class="arrow">▼</span>
+      <span class="node green">FoodRecognitionService：PixelMap → RGBA ArrayBuffer</span>
+      <span class="arrow">▼</span>
+      <span class="node purple">ModelWorker 线程：yolo_init（rawfile 模型字节）→ yolo_detect</span>
+      <span class="arrow">▼</span>
+      <div class="flow-step">
+        <span class="idx">分</span>
+        <span class="node teal small">识别到食物（banana / pizza…）→ 组问题给 agent</span>
+        <span class="node gray small">未识别到 → 提示 / 回退文字问答</span>
+      </div>
+      <span class="arrow">▼</span>
+      <span class="node green">agent 判断能否食用（有未痊愈状况则先确认）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">展示结论</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.5 事实记忆生命周期（active / resolved）</h3>
+    <div class="arch-col">
+      <span class="node blue">对话中透露新事实（“我患有感冒”）</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">facts 数组 → metadata：{source:chat_fact, subject, status:active, time}</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">向量化入库（同 subject 的 active 不重复）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">用户说“感冒好了 / 痊愈”</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">模型输出 status=resolved → 删除同 subject 的 active 记录</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">入库 resolved 事实（时间线保留）</span>
+      <span class="arrow">▼</span>
+      <span class="node green">RAG 记忆片段带时间戳 → 模型正确判断当前状态</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.6 ModelWorker 线程调用流程（RPC）</h3>
+    <div class="arch-col">
+      <span class="node green">ModelWorkerService.post(type, payload)</span>
+      <span class="arrow">▼</span>
+      <span class="node green">pending 表登记 id + Promise</span>
+      <span class="arrow">▼</span>
+      <span class="node purple">worker.postMessage（ArrayBuffer 走 transfer 零拷贝）</span>
+      <span class="arrow">▼</span>
+      <span class="node purple">ModelWorker 线程：embed_init / embed / yolo_init / yolo_detect</span>
+      <span class="arrow">▼</span>
+      <span class="node purple">workerPort.postMessage 回传结果</span>
+      <span class="arrow">▼</span>
+      <span class="node green">按 id resolve / reject → 主线程拿到结果</span>
+    </div>
+  </div>
+
+  <div class="flow">
+    <h3>3.7 对话记录与记忆检索</h3>
+    <div class="arch-col">
+      <span class="node blue">每条用户/机器人消息 → ConversationService → conversation_message（health_chat / ai_chat）</span>
+      <span class="arrow">▼</span>
+      <span class="node blue">用户提问 → 向量化 → RAG top3 检索</span>
+      <span class="arrow">▼</span>
+      <span class="node green">记忆片段（档案 / 膳食知识 / 饮食建议 / 事实时间线）拼入提示词</span>
+      <span class="arrow">▼</span>
+      <span class="node orange">DeepSeek 依据记忆回答</span>
+    </div>
+  </div>
+</section>
+
+<footer style="color:var(--muted);font-size:12px;text-align:center;margin-top:30px">
+  生成时间 2026-08-28 · 个人学习项目 · 架构以 docs/build-pitfalls.md 与代码为准
+</footer>
+</main>
+</body>
+</html>
