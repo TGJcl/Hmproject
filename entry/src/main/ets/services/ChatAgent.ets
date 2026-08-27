@@ -126,7 +126,7 @@ export class ChatAgent {
           '\n\n记忆片段：\n' + memoryText + '\n\n用户输入：' + input
       }
     ];
-    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    const content: string = await this.callModel(apiKey, messages, records);
     return await this.handleContent(context, content);
   }
 
@@ -161,7 +161,7 @@ export class ChatAgent {
           '\n用户输入：' + input
       }
     ];
-    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    const content: string = await this.callModel(apiKey, messages);
     return await this.handleContent(context, content);
   }
 
@@ -187,7 +187,7 @@ export class ChatAgent {
           '\n\n请根据用户确认后的最新身体状况，明确回答该食物或饮品能否食用，以及注意事项。'
       }
     ];
-    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    const content: string = await this.callModel(apiKey, messages, records);
     return await this.handleContent(context, content);
   }
 
@@ -387,6 +387,20 @@ export class ChatAgent {
     const day: string = now.getDate() < 10 ?
       '0' + now.getDate().toString() : now.getDate().toString();
     return now.getFullYear().toString() + '-' + month + '-' + day;
+  }
+
+  private async callModel(apiKey: string, messages: Array<DeepSeekMessage>,
+    ragRecords?: Array<VectorRecord>): Promise<string> {
+    LOG.info('LLM call prompt: %{public}s', JSON.stringify(messages));
+    let ragText: string = '无';
+    if (ragRecords !== undefined && ragRecords.length > 0) {
+      ragText = ragRecords.map((r: VectorRecord) =>
+        r.content + ' | score=' + r.score.toString()).join('\n');
+    }
+    LOG.info('LLM call rag results: %{public}s', ragText);
+    const content: string = await DeepSeekClient.chat(apiKey, messages);
+    LOG.info('LLM call reply: %{public}s', content);
+    return content;
   }
 
   private static extractJson(text: string): string {
