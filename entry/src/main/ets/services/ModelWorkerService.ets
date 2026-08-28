@@ -70,11 +70,11 @@ export class ModelWorkerService {
     if (ModelWorkerService.yoloInitialized) {
       return;
     }
-    ModelWorkerService.yoloInitialized = true;
     const raw: Uint8Array = await context.resourceManager.getRawFileContent(YOLO_RAW_MODEL);
     const buffer: ArrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer;
     const yoloPayload: Record<string, Object> = { 'model': buffer };
     await ModelWorkerService.post('yolo_init', yoloPayload, [buffer]);
+    ModelWorkerService.yoloInitialized = true;
     LOG.info('yolo worker init requested');
   }
 

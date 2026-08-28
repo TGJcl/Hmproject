@@ -155,7 +155,8 @@ struct Chat {
         List({ space: 12 }) {
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
-              ChatBubble({ role: msg.role, text: msg.text, imagePixelMap: msg.imagePixelMap })
+              ChatBubble({ role: msg.role, text: msg.text, imageUri: msg.imageUri,
+                imagePixelMap: msg.imagePixelMap })
             }
           }, (msg: ChatMessage, index: number) => index.toString())
           if (this.thinking) {

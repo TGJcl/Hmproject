@@ -73,6 +73,35 @@ static napi_value Init(napi_env env, napi_callback_info info)
     size_t argc = 2;
     napi_value args[2];
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    if (argc == 1) {
+        bool isBuffer = false;
+        napi_is_arraybuffer(env, args[0], &isBuffer);
+        if (!isBuffer) {
+            return ThrowError(env, "init: need resourceManager and modelName, or ArrayBuffer");
+        }
+        void *data = nullptr;
+        size_t len = 0;
+        napi_get_arraybuffer_info(env, args[0], &data, &len);
+        if (data == nullptr || len == 0) {
+            return ThrowError(env, "init: empty buffer");
+        }
+        void *copy = malloc(len);
+        if (copy == nullptr) {
+            return ThrowError(env, "init: out of memory");
+        }
+        memcpy(copy, data, len);
+        if (!BuildModelFromMemory(env, copy, len)) {
+            free(copy);
+            return ThrowError(env, "init: model build failed");
+        }
+        if (g_model.buffer != nullptr) {
+            free(g_model.buffer);
+        }
+        g_model.buffer = copy;
+        g_model.bufferSize = len;
+        g_model.built = true;
+        return nullptr;
+    }
     if (argc < 2) {
         return ThrowError(env, "init: need resourceManager and modelName");
     }
@@ -205,16 +234,17 @@ static void DetectExecute(napi_env env, void *data)
     int padY = (target - newH) / 2;
 
     // letterbox + RGB 归一化（RGBA -> 1x3x640x640 float）
-    std::vector<float> input(3 * target * target, kPadValue / 255.0f);
+    // 导出的 YOLOv8 模型输入规格是 RGB、0~255，不要再归一化到 0~1。
+    std::vector<float> input(3 * target * target, kPadValue);
     for (int y = 0; y < newH; y++) {
         for (int x = 0; x < newW; x++) {
             size_t src = (static_cast<size_t>(y) * job->width + x) * 4;
             int dy = y + padY;
             int dx = x + padX;
             size_t plane = static_cast<size_t>(target) * target;
-            input[0 * plane + dy * target + dx] = job->rgba[src] / 255.0f;
-            input[1 * plane + dy * target + dx] = job->rgba[src + 1] / 255.0f;
-            input[2 * plane + dy * target + dx] = job->rgba[src + 2] / 255.0f;
+            input[0 * plane + dy * target + dx] = job->rgba[src];
+            input[1 * plane + dy * target + dx] = job->rgba[src + 1];
+            input[2 * plane + dy * target + dx] = job->rgba[src + 2];
         }
     }
 

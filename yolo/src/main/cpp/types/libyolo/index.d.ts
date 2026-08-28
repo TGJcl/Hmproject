@@ -6,6 +6,5 @@ export interface YoloDetection {
   width: number;
   height: number;
 }
-export const init: (resourceManager: Object, modelName: string) => void;
-export const initFromBuffer: (buffer: ArrayBuffer) => void;
+export const init: (resourceManagerOrBuffer: Object, modelName?: string) => void;
 export const detect: (imageData: ArrayBuffer, width: number, height: number) => Promise<Array<YoloDetection>>;
