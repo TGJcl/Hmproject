@@ -88,6 +88,20 @@ LogManager.setModuleLevel('HealthService', LogLevel.WARN); // 按模块覆盖
 - embedding 模型 645MB 过大不能进 rawfile，需放到应用沙箱 `filesDir/models/` 下（`jina-embeddings-v2-base-zh-static.ms` + `tokenizer.json`）；`MemoryService` 检测到文件后会自动切换 `EmbeddingManager` 到原生实现，否则回退占位 embedding
 - 目前只提供 `arm64-v8a` ABI；模拟器（x86_64）需要另行放置对应架构的 `libmindspore-lite.so`
 
+## 性能与体积数据（实测）
+
+> 数据均为本机实测；真机（麒麟 aarch64 + MindSpore Lite）需复测，量级可参考。
+
+| 指标 | 数值 | 环境 / 方法 |
+| --- | --- | --- |
+| YOLOv8n 单次推理 | 均值 27.3 ms（min 19.2 / max 33.2，20 次） | 开发机 x64 CPU · onnxruntime 1.29 · 输入 1×3×640×640 |
+| 余弦 TopK 检索 | 单轮 ≈ 0.55 ms（768 维 × 1000 条） | 开发机 Node 实测 JS 余弦计算；RDB 读取另计 |
+| HAP 打包体积 | ≈ 21.6 MB（未签名） | entry-default-unsigned.hap |
+| YOLO 模型体积 | 12.2 MB（yolov8n.ms，随包 rawfile） | — |
+| Embedding 模型体积 | 615 MiB（jina-embeddings-v2-base-zh-static.ms，不入包） | 需放入应用沙箱 filesDir/models/ |
+| MindSpore Lite 运行时 | ≈ 5.8 MB（libmindspore-lite.so） | arm64-v8a |
+
+对比说明：端侧推理为毫秒级、无网络依赖、图片与文本不出端；纯 API 方案单次往返通常为秒级，且需上传数据。具体取舍取决于隐私与实时性要求。
 已知限制：
 
 - C++ 分词器为近似实现（ASCII 小写 + 空白切分 + 字符级 BPE），未实现完整 NFC 归一化，个别字符可能产生与 HF tokenizer 不同的 token，后续可按需完善
