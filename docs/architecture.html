@@ -49,8 +49,16 @@
   .flow-step .cond{font-size:12px;color:var(--muted)}
   .branch{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 4px 32px}
   .branch .col{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:16px;margin-bottom:16px}
+  .wf-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .wf-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .wf-badge{font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px}
+  .wf-badge.profile{background:#eef4ff;color:#0842b8;border:1px solid #bcd0fb}
+  .wf-badge.qa{background:#f5f1ff;color:#5b21b6;border:1px solid #d3c4f7}
+  .wf-title{font-size:15px;font-weight:600}
+  .wf-desc{font-size:12px;color:var(--muted)}
   code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:12px}
-  @media (max-width:640px){ header{padding:20px} main{padding:14px 12px 40px} .module-grid{grid-template-columns:1fr} }
+  @media (max-width:640px){ header{padding:20px} main{padding:14px 12px 40px} .module-grid{grid-template-columns:1fr} .wf-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -124,9 +132,96 @@
   </div>
 </section>
 
+<!-- ==================== 两大核心工作流 ==================== -->
+<section>
+  <h2>二、两大核心工作流（ChatAgent）</h2>
+  <p class="sec-desc">同一个 Agent 通过上下文自动识别当前工作流；两者共享 RAG 检索与事实记忆，仅任务目标、分支判断和落库逻辑不同。</p>
+
+  <div class="wf-grid">
+    <div class="wf-card">
+      <div class="wf-head">
+        <span class="wf-badge profile">工作流一</span>
+        <div>
+          <div class="wf-title">健康档案采集 HEALTH_PROFILE</div>
+          <div class="wf-desc">逐项采集 8 个字段，建档完成后按病史查饮食建议</div>
+        </div>
+      </div>
+      <div class="arch-col">
+        <span class="node blue">用户发送健康信息（“我28岁，170cm，60kg，有高血压…”）</span>
+        <span class="arrow">▼</span>
+        <span class="node green">ChatAgent.run → API Key 校验（缺失则弹窗索取）</span>
+        <span class="arrow">▼</span>
+        <span class="node green">standardRun：加载 prompts/agent_prompt.md 提示词</span>
+        <span class="arrow">▼</span>
+        <span class="node purple">embed 用户输入（ModelWorker 线程 · jina 向量模型）</span>
+        <span class="arrow">▼</span>
+        <span class="node orange">RAG top3 检索 vector_memory（档案 / 膳食知识 / 事实）</span>
+        <span class="arrow">▼</span>
+        <span class="node orange">组装提示词（当前日期 + 未痊愈状况 + 当前档案 + 记忆片段）</span>
+        <span class="arrow">▼</span>
+        <span class="node orange">DeepSeek → 严格 JSON（mode=profile + fields + reply）</span>
+        <span class="arrow">▼</span>
+        <span class="node green">handleContent：抽取 8 字段（年龄/身高/体重/睡眠/运动/症状/病史/周期）</span>
+        <span class="arrow">▼</span>
+        <div class="flow-step">
+          <span class="idx">分</span>
+          <span class="node gray small">未收齐 → 回复追问下一个缺失字段（↺ 回到用户输入，循环）</span>
+          <span class="node orange small">已收齐 → saveHealthProfile → 向量化 → vector_memory（health_profile）</span>
+        </div>
+        <span class="arrow">▼</span>
+        <div class="flow-step">
+          <span class="idx">分</span>
+          <span class="node teal small">history ≠ “无” → DietAdviceService：维基百科查询 → DeepSeek 归纳 → web_diet_advice 入库</span>
+          <span class="node gray small">history = “无” → 跳过</span>
+        </div>
+        <span class="arrow">▼</span>
+        <span class="node green">工作流重置为 AI_QA · profile 清空 · facts 事实入库</span>
+        <span class="arrow">▼</span>
+        <span class="node blue">页面展示“档案已存入记忆库 + 饮食注意事项” · 对话记录落库</span>
+      </div>
+    </div>
+
+    <div class="wf-card">
+      <div class="wf-head">
+        <span class="wf-badge qa">工作流二</span>
+        <div>
+          <div class="wf-title">健康问答 AI_QA</div>
+          <div class="wf-desc">RAG 检索回答 + 食物确认（food_check）子流程</div>
+        </div>
+      </div>
+      <div class="arch-col">
+        <span class="node blue">用户提问（文字）或上传图片（YOLO 识别出食物标签）</span>
+        <span class="arrow">▼</span>
+        <span class="node green">ChatAgent.run / runWithImage → API Key 校验</span>
+        <span class="arrow">▼</span>
+        <div class="flow-step">
+          <span class="idx">分</span>
+          <span class="node purple small">图片识别到食物 → 组问题“识别到 xx，能否食用？”</span>
+          <span class="node gray small">未识别到 → 回退为文字问答</span>
+        </div>
+        <span class="arrow">▼</span>
+        <div class="flow-step">
+          <span class="idx">判</span>
+          <span class="node orange small">有 pending_food_question → finishFoodCheck：清空 pending → RAG → DeepSeek（携带“原问题 + 用户确认”）→ 明确回答</span>
+          <span class="node blue small">无 pending → standardRun：embed → RAG top3 → 提示词（含未痊愈状况列表）→ DeepSeek</span>
+        </div>
+        <span class="arrow">▼</span>
+        <div class="flow-step">
+          <span class="idx">分</span>
+          <span class="node blue small">mode=qa → 直接回复</span>
+          <span class="node orange small">mode=food_check → 保存 pending_food_question（Preferences）→ 模型逐一确认未痊愈状况 → 等待用户回复（↺ 回到 runCore）</span>
+        </div>
+        <span class="arrow">▼</span>
+        <span class="node green">facts 事实入库（新增 active / 痊愈 resolved）</span>
+        <span class="arrow">▼</span>
+        <span class="node blue">页面展示回复 · 对话记录落库（conversation_message）</span>
+      </div>
+    </div>
+  </div>
+</section>
 <!-- ==================== 各模块架构 ==================== -->
 <section>
-  <h2>二、各个模块架构图</h2>
+  <h2>三、各个模块架构图</h2>
   <p class="sec-desc">每个模块的内部结构、对外接口与依赖方向。</p>
   <div class="module-grid">
 
@@ -261,11 +356,11 @@
 
 <!-- ==================== 各模块流程图 ==================== -->
 <section>
-  <h2>三、各个模块流程图</h2>
+  <h2>四、各个模块流程图</h2>
   <p class="sec-desc">核心业务链路，从用户输入到结果展示。</p>
 
   <div class="flow">
-    <h3>3.1 统一对话主流程（档案采集 / 健康问答 / 事实记录）</h3>
+    <h3>4.1 统一对话主流程（档案采集 / 健康问答 / 事实记录）</h3>
     <div class="arch-col">
       <span class="node blue">用户发送消息（文字 / 图片）</span>
       <span class="arrow">▼</span>
@@ -295,7 +390,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.2 健康档案采集 + 饮食建议流程</h3>
+    <h3>4.2 健康档案采集 + 饮食建议流程</h3>
     <div class="arch-col">
       <span class="node blue">用户提供健康信息（“我28岁，170cm…”）</span>
       <span class="arrow">▼</span>
@@ -318,7 +413,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.3 食物确认流程（模型判定 + 状态持久化）</h3>
+    <h3>4.3 食物确认流程（模型判定 + 状态持久化）</h3>
     <div class="arch-col">
       <span class="node blue">用户问“西瓜可以吗”</span>
       <span class="arrow">▼</span>
@@ -343,7 +438,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.4 图片上传 → YOLO 识别 → 能否食用</h3>
+    <h3>4.4 图片上传 → YOLO 识别 → 能否食用</h3>
     <div class="arch-col">
       <span class="node blue">点击 🖼️ → ImagePicker（PhotoViewPicker 相册选图）</span>
       <span class="arrow">▼</span>
@@ -366,7 +461,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.5 事实记忆生命周期（active / resolved）</h3>
+    <h3>4.5 事实记忆生命周期（active / resolved）</h3>
     <div class="arch-col">
       <span class="node blue">对话中透露新事实（“我患有感冒”）</span>
       <span class="arrow">▼</span>
@@ -385,7 +480,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.6 ModelWorker 线程调用流程（RPC）</h3>
+    <h3>4.6 ModelWorker 线程调用流程（RPC）</h3>
     <div class="arch-col">
       <span class="node green">ModelWorkerService.post(type, payload)</span>
       <span class="arrow">▼</span>
@@ -402,7 +497,7 @@
   </div>
 
   <div class="flow">
-    <h3>3.7 对话记录与记忆检索</h3>
+    <h3>4.7 对话记录与记忆检索</h3>
     <div class="arch-col">
       <span class="node blue">每条用户/机器人消息 → ConversationService → conversation_message（health_chat / ai_chat）</span>
       <span class="arrow">▼</span>
