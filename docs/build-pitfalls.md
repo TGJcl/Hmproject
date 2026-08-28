@@ -1,6 +1,6 @@
-# 鸿蒙工程编译阶段踩坑记录
+# 鸿蒙工程踩坑记录（编译阶段 + 真机调试）
 
-> 记录 HmProject 搭建与编译过程中实际遇到的问题、根因与解决方案，供后续开发参考。
+> 记录 HmProject 搭建、编译与真机调试过程中实际遇到的问题、根因与解决方案，供后续开发参考。
 
 ## 环境
 
@@ -141,7 +141,43 @@
   ```
 
 - 经验：新加入的模型/大体积二进制资源若报 “Failed to delete ... No error”，优先检查文件是否只读。
-## 五、命令行小贴士
+## 五、真机调试（运行期）
+
+### 14. 聊天记录图片气泡空白
+
+- 现象：真机上用户上传图片后气泡空白；日志显示 PixelMap 加载成功（宽高/字节数正常）、消息对象也持有 PixelMap，但 `Image(PixelMap)` 渲染不可见。
+- 原因：真机上把已解码的 PixelMap 直接交给聊天列表的 `Image` 组件渲染兼容性不佳；而原始 `file://media/...` URI 有效。
+- 解决：
+  1. 消息模型保留原始 `imageUri`，气泡渲染优先级：`imageUri` → `imagePixelMap` → 纯文本；
+  2. 解码时显式 `desiredPixelFormat: RGBA_8888`，避免真机返回其他像素格式导致 native 读取错乱。
+- 涉及：`ChatMessage` / `ChatBubble` / `Chat` / `ImageLoader`
+
+### 15. 图片识别回答错误 / 泛化（YOLO 链路静默失败）
+
+- 现象：识别后回答与图片无关或退化为通用回答；真机日志链路：
+
+  ```text
+  module 'yolo' does not provide an export name 'initFromBuffer'
+  -> labels=0
+  -> runWithImage 无标签，原图未发送给 DeepSeek
+  -> 回答缺少图片事实依据
+  ```
+
+- 根因（三层叠加）：
+  1. **native 导出与调用不匹配**：ArkTS 按命名导出调用 `initFromBuffer`，设备加载的 `libyolo.so` 没有该导出（多为增量/旧构建残留）；且 native `init` 原只支持 `resourceManager + modelName`，Worker 拿到的却是 ArrayBuffer；
+  2. **CMake 绝对路径**：用开发机绝对路径链接 `libmindspore-lite.so`，真机 HAP 依赖不可靠；
+  3. **YOLO 输入范围错误**：模型规格要求 RGB、0~255，预处理却除以 255 归一化、填充值写成 114/255，检测结果异常。
+- 解决：
+  1. native `init` 增加单参数 ArrayBuffer 分支（复用 `BuildModelFromMemory`），ArkTS 侧统一 `init(buffer)`，`index.d.ts` 同步；
+  2. CMake 改 `target_link_directories` + `-l:libmindspore-lite.so` 按库名链接项目内 `libs/arm64-v8a`；
+  3. 预处理改回 0~255、letterbox 填充 114；
+  4. `yoloInitialized` 初始化成功后才置位，失败可重试。
+- 经验：
+  - “识别回答不对”先查前置链路（YOLO 是否真的初始化成功、`labels` 是否非 0），再怀疑大模型；日志里 `labels=0` 是断点信号；
+  - 更换构建后务必 clean 重装，避免旧 `.so` 残留造成“导出名不存在”的假象；
+  - 补丁里混入的签名配置（macOS 路径/明文密码）与 SDK 版本变更与本次问题无关，合入前需甄别剔除。
+
+## 六、命令行小贴士
 
 - PowerShell 调用带空格的程序路径必须用 `&`：`& "D:\DevEco_Stdio\DevEco Studio\tools\node\node.exe" ...`
 - 常用构建命令（与 DevEco 一致）：
