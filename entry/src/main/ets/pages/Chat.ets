@@ -1,6 +1,8 @@
 import { common } from '@kit.AbilityKit';
 import { image } from '@kit.ImageKit';
+import { window, KeyboardAvoidMode } from '@kit.ArkUI';
 import { DeepSeekConfig } from 'deepseek';
+import { ConversationMessage } from 'conversation';
 import { ImageLoader, ImagePicker } from 'image';
 import { ApiKeyPrompt } from '../components/ApiKeyPrompt';
 import { ChatBubble } from '../components/ChatBubble';
@@ -21,11 +23,81 @@ struct Chat {
   @State workflow: AgentWorkflow = AgentWorkflow.AI_QA;
   @State pendingImageUri: string = '';
   @State pendingImagePixelMap: image.PixelMap | undefined = undefined;
+  @State bottomSafeHeight: number = 0;
+  private scroller: Scroller = new Scroller();
   private agent: ChatAgent = new ChatAgent();
 
   aboutToAppear(): void {
-    this.pushBot(this.agent.greeting());
+    this.setup();
     this.checkApiKey();
+  }
+
+  private async setup(): Promise<void> {
+    this.applyKeyboardAvoidMode();
+    this.queryBottomSafeHeight();
+    await this.loadHistory();
+    this.pushBot(this.agent.greeting());
+  }
+
+  private applyKeyboardAvoidMode(): void {
+    try {
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    } catch (e) {
+    }
+  }
+
+  private async queryBottomSafeHeight(): Promise<void> {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const win: window.Window = await window.getLastWindow(context);
+      const navArea: window.AvoidArea = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      const systemArea: window.AvoidArea = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const bottomPx: number = Math.max(navArea.bottomRect.height, systemArea.bottomRect.height);
+      this.bottomSafeHeight = px2vp(bottomPx);
+    } catch (e) {
+      this.bottomSafeHeight = 0;
+    }
+  }
+
+  private async loadHistory(): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    try {
+      const aiHistory: Array<ConversationMessage> = await ConversationService.getAiHistory(context);
+      const healthHistory: Array<ConversationMessage> = await ConversationService.getHealthHistory(context);
+      const merged: Array<ConversationMessage> = aiHistory.concat(healthHistory);
+      merged.sort((a, b) => a.createdAt - b.createdAt);
+      const restored: Array<ChatMessage> = [];
+      for (const hist of merged) {
+        restored.push(this.historyToMessage(hist));
+      }
+      if (restored.length > 0) {
+        this.messages = restored;
+      }
+    } catch (e) {
+    }
+  }
+
+  private historyToMessage(hist: ConversationMessage): ChatMessage {
+    const msg = new ChatMessage();
+    msg.role = hist.role;
+    const tagIndex: number = hist.text.indexOf(IMAGE_TAG);
+    if (tagIndex >= 0) {
+      const prefix: string = hist.text.substring(0, tagIndex);
+      const uri: string = hist.text.substring(tagIndex + IMAGE_TAG.length);
+      msg.text = prefix.trim();
+      msg.imageUri = uri.trim();
+    } else {
+      msg.text = hist.text;
+    }
+    return msg;
+  }
+
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      if (this.messages.length > 0) {
+        this.scroller.scrollToIndex(this.messages.length - 1, true, ScrollAlign.END);
+      }
+    }, 30);
   }
 
   private async checkApiKey(): Promise<void> {
@@ -42,6 +114,7 @@ struct Chat {
     msg.text = text;
     this.messages.push(msg);
     this.recordMessage('bot', text);
+    this.scrollToBottom();
   }
 
   private recordMessage(role: string, text: string): void {
@@ -113,6 +186,7 @@ struct Chat {
     userMsg.imagePixelMap = imagePixelMap;
     this.messages.push(userMsg);
     this.recordUserMessage(text, imageUri);
+    this.scrollToBottom();
 
     this.thinking = true;
     try {
@@ -152,7 +226,7 @@ struct Chat {
   build() {
     Stack() {
       Column() {
-        List({ space: 12 }) {
+        List({ space: 12,scroller:this.scroller}) {
           ForEach(this.messages, (msg: ChatMessage, index: number) => {
             ListItem() {
               ChatBubble({ role: msg.role, text: msg.text, imageUri: msg.imageUri,
@@ -168,6 +242,7 @@ struct Chat {
         .layoutWeight(1)
         .width('100%')
         .padding($r('app.float.page_margin'))
+
 
         if (this.pendingImageUri !== '') {
           Row() {
@@ -242,6 +317,7 @@ struct Chat {
       .width('100%')
       .height('100%')
       .backgroundColor($r('app.color.page_background'))
+      .padding({ bottom: this.bottomSafeHeight })
 
       if (this.showKeyDialog) {
         ApiKeyPrompt({
